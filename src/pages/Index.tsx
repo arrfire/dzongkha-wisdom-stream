@@ -10,7 +10,7 @@ const Index = () => {
   const stats = [
     { label: "Active Learners", value: "12,547", icon: Users, color: "text-blue-600" },
     { label: "Lessons Completed", value: "89,234", icon: BookOpen, color: "text-green-600" },
-    { label: "BTC Earned", value: "45,892", icon: Coins, color: "text-yellow-600" },
+    { label: "EDU Earned", value: "77,000,000", icon: Coins, color: "text-yellow-600" },
     { label: "Success Rate", value: "94%", icon: TrendingUp, color: "text-purple-600" }
   ];
 

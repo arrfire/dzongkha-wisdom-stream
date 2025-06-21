@@ -19,7 +19,7 @@ const QuizCard = () => {
     ],
     correctAnswer: 1,
     explanation: "Blockchain security comes from its decentralized nature - multiple participants (nodes) verify each transaction, making it nearly impossible to falsify records.",
-    reward: "10 BTC"
+    reward: "100 EDU"
   };
 
   const handleAnswer = (answerIndex: number) => {

@@ -24,7 +24,7 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-1 text-sm text-gray-600">
               <Coins className="h-4 w-4 text-yellow-500" />
-              <span className="font-medium">1,247 BTC</span>
+              <span className="font-medium">77,000,000 EDU</span>
             </div>
             <Button className="bg-orange-600 hover:bg-orange-700">
               Start Learning
