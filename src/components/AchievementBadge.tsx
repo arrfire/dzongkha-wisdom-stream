@@ -1,15 +1,6 @@
-
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Star, Target, Book } from "lucide-react";
-
-interface Achievement {
-  title: string;
-  description: string;
-  type: "streak" | "completion" | "quiz" | "milestone";
-  earned: boolean;
-  progress?: number;
-  total?: number;
-}
+import { Trophy, Star, Target, Book, Users } from "lucide-react";
+import { Achievement } from "@/types/achievement";
 
 const AchievementBadge = ({ achievement }: { achievement: Achievement }) => {
   const getIcon = () => {
@@ -18,6 +9,7 @@ const AchievementBadge = ({ achievement }: { achievement: Achievement }) => {
       case "completion": return <Book className="h-5 w-5" />;
       case "quiz": return <Target className="h-5 w-5" />;
       case "milestone": return <Trophy className="h-5 w-5" />;
+      case "collaboration": return <Users className="h-5 w-5" />;
       default: return <Star className="h-5 w-5" />;
     }
   };
@@ -29,6 +21,7 @@ const AchievementBadge = ({ achievement }: { achievement: Achievement }) => {
       case "completion": return "text-green-600 bg-green-100";
       case "quiz": return "text-blue-600 bg-blue-100";
       case "milestone": return "text-purple-600 bg-purple-100";
+      case "collaboration": return "text-pink-600 bg-pink-100";
       default: return "text-orange-600 bg-orange-100";
     }
   };
