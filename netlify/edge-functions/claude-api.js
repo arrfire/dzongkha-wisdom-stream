@@ -1,9 +1,7 @@
-// netlify/edge-functions/claude-api.ts
-// Create this file in your project root: netlify/edge-functions/claude-api.ts
+// netlify/edge-functions/claude-api.js
+// Create this file instead of the .ts version to avoid TypeScript warnings
 
-import type { Context } from "https://edge.netlify.com";
-
-export default async (request: Request, context: Context) => {
+export default async (request, context) => {
   // Handle preflight CORS requests
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -30,6 +28,7 @@ export default async (request: Request, context: Context) => {
   // Get API key from environment
   const apiKey = Deno.env.get('CLAUDE_API_KEY');
   if (!apiKey) {
+    console.error('CLAUDE_API_KEY not found in environment variables');
     return new Response(JSON.stringify({ error: 'API key not configured' }), { 
       status: 500,
       headers: {
@@ -38,6 +37,10 @@ export default async (request: Request, context: Context) => {
       },
     });
   }
+
+  // Log API key presence (don't log the actual key for security)
+  console.log('API key found, length:', apiKey.length);
+  console.log('API key starts with:', apiKey.substring(0, 10) + '...');
 
   try {
     const body = await request.json();
@@ -58,6 +61,22 @@ export default async (request: Request, context: Context) => {
     const data = await response.json();
     
     console.log('Claude API response status:', response.status);
+    
+    // Check for API errors
+    if (!response.ok) {
+      console.error('Claude API error:', data);
+      return new Response(JSON.stringify({ 
+        error: 'Claude API error', 
+        details: data,
+        status: response.status 
+      }), {
+        status: response.status,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
 
     // Return response with CORS headers
     return new Response(JSON.stringify(data), {
