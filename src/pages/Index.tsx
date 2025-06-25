@@ -9,8 +9,36 @@ import AchievementBadge from "@/components/AchievementBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, BookOpen, Coins, TrendingUp } from "lucide-react";
 import { journeyData, Journey, Mission } from "@/data/journeyData";
+import { useNDIAuth } from "@/hooks/useNDIAuth";
+import { NDILogin } from "@/components/NDILogin";
+import { CheckCircle } from "lucide-react";
 
 type ViewState = 'overview' | 'journey-detail' | 'mission-view';
+
+const NDIWelcomeBanner = () => {
+  const { isAuthenticated, user } = useNDIAuth();
+  
+  if (!isAuthenticated || !user) return null;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-center space-x-3">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          <div>
+            <p className="font-medium text-green-800">
+              Welcome back, {user.fullName}!
+            </p>
+            <p className="text-sm text-green-600">
+              Your learning progress is securely linked to your National Digital Identity.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<ViewState>('overview');
