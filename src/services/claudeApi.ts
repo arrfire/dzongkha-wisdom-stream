@@ -1,4 +1,4 @@
-// src/services/claudeApi.ts (ensure exact filename casing)
+// src/services/claudeApi.ts - Replace your existing file with this
 import { NDIUser } from "@/types/ndi";
 import { Journey, Mission } from "@/data/journeyData";
 
@@ -24,14 +24,31 @@ interface ClaudeAPIResponse {
 }
 
 class ClaudeApiService {
-  private apiKey: string;
-  private baseUrl = 'https://api.anthropic.com/v1/messages';
+  private apiEndpoint: string;
+  private fallbackResponses: { [key: string]: string[] };
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_CLAUDE_API_KEY || '';
-    if (!this.apiKey) {
-      console.warn('Claude API key not found. Please set VITE_CLAUDE_API_KEY environment variable.');
-    }
+    // Use the Netlify edge function endpoint
+    this.apiEndpoint = '/api/claude';
+    
+    // Smart fallback responses
+    this.fallbackResponses = {
+      greeting: [
+        `🙏 Namaste! I'm Master Shifu, your Web3 guide. Welcome to EduStream - where ancient Bhutanese wisdom meets cutting-edge blockchain technology!`,
+        `Hello there! I'm Master Shifu, and I'm thrilled to guide you through your Web3 learning journey. Bhutan's pioneering spirit in digital innovation makes this the perfect place to explore blockchain!`,
+        `Welcome to your Web3 adventure! I'm Master Shifu, here to help you master blockchain technology. Let's unlock the power of decentralized learning together! 🚀`
+      ],
+      journey: [
+        `Excellent choice! This journey will transform your understanding of Web3. As someone from Bhutan - the world's first carbon-negative country and NDI pioneer - you're perfectly positioned to lead the blockchain revolution! 🌟`,
+        `Perfect selection! You're about to embark on an incredible learning adventure. Bhutan's innovative spirit in digital identity makes you ideal for mastering Web3 concepts. Let's begin! ⚡`,
+        `Outstanding! This journey aligns wonderfully with your goals. With Bhutan leading the way in digital innovation, you'll find these blockchain concepts both familiar and revolutionary! 🎯`
+      ],
+      encouragement: [
+        `You're making amazing progress! Your dedication to learning blockchain technology honors Bhutan's tradition of innovation. Keep building those Web3 skills! 🚀`,
+        `Fantastic work! You're embodying the spirit of Gross National Happiness by pursuing meaningful knowledge. Every step forward strengthens your Web3 expertise! 🌟`,
+        `Wonderful achievement! Your learning journey reflects Bhutan's pioneering approach to digital transformation. Keep pushing the boundaries! ⚡`
+      ]
+    };
   }
 
   private getSystemPrompt(user: NDIUser, selectedJourney?: Journey): string {
@@ -83,41 +100,76 @@ IMPORTANT GUIDELINES:
 - Maximum response length: 300 words`;
   }
 
+  private getSmartFallback(userMessage: string, user: NDIUser, selectedJourney?: Journey): string {
+    const message = userMessage.toLowerCase();
+    
+    if (message.includes('hello') || message.includes('hi') || message.includes('start') || message.includes('namaste')) {
+      const responses = this.fallbackResponses.greeting;
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    if (message.includes('journey') || message.includes('choose') || selectedJourney) {
+      const responses = this.fallbackResponses.journey;
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    if (message.includes('mission') || message.includes('complete') || message.includes('done') || message.includes('progress')) {
+      const responses = this.fallbackResponses.encouragement;
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    // Context-aware responses
+    if (selectedJourney) {
+      return `🙏 Great question about ${selectedJourney.title}! This journey focuses on ${selectedJourney.description.toLowerCase()}. As a student from ${user.institution}, you bring unique perspectives to Web3 learning. Each mission builds your expertise step by step! 🌟`;
+    }
+
+    return `🙏 Namaste ${user.fullName}! Your question shows great curiosity about Web3. As someone from Bhutan - where digital innovation meets ancient wisdom - you're perfectly positioned to master blockchain technology. Keep exploring and asking great questions! 🚀`;
+  }
+
   async sendMessage(
     messages: ClaudeMessage[],
     user: NDIUser,
     selectedJourney?: Journey,
     currentMission?: Mission
   ): Promise<string> {
-    if (!this.apiKey) {
-      return "I apologize, but I need to be properly configured to assist you. Please contact support.";
-    }
-
     try {
-      const response = await fetch(this.baseUrl, {
+      const requestBody = {
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1000,
+        system: this.getSystemPrompt(user, selectedJourney),
+        messages: messages.slice(-10), // Keep last 10 messages for context
+      };
+
+      console.log('Sending request to edge function...');
+
+      const response = await fetch(this.apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01',
         },
-        body: JSON.stringify({
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 1000,
-          system: this.getSystemPrompt(user, selectedJourney),
-          messages: messages.slice(-10), // Keep last 10 messages for context
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('Edge function response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Claude API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Edge function error:', errorText);
+        throw new Error(`API error: ${response.status}`);
       }
 
       const data: ClaudeAPIResponse = await response.json();
-      return data.content[0]?.text || "I'm having trouble responding right now. Please try again.";
+      
+      if (data.content && data.content[0]?.text) {
+        console.log('Successfully got Claude response');
+        return data.content[0].text;
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
       console.error('Claude API error:', error);
-      return "I'm experiencing some technical difficulties. Please try again in a moment.";
+      // Return smart fallback instead of generic error
+      return this.getSmartFallback(messages[messages.length - 1]?.content || '', user, selectedJourney);
     }
   }
 
