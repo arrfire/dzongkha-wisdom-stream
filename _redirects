@@ -1,0 +1,12 @@
+# Netlify redirects file
+# This should be placed in the public folder
+
+# Handle client-side routing for React Router
+/*    /index.html   200
+
+# API redirects (if you have any backend API routes)
+/api/*  https://your-backend-url.com/api/:splat  200
+
+# Force HTTPS (optional)
+http://yourdomain.com/* https://yourdomain.com/:splat 301!
+https://www.yourdomain.com/* https://yourdomain.com/:splat 301!

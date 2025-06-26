@@ -1,5 +1,4 @@
-
-// src/pages/Rewards.tsx - Rewards page wrapper
+// src/pages/Rewards.tsx - Updated with better routing logic
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import RewardsPage from "@/components/RewardsPage";
@@ -12,22 +11,31 @@ const Rewards = () => {
   const { isAuthenticated, user } = useNDIAuth();
   const [learnerProfile, setLearnerProfile] = useState<LearnerProfile | null>(null);
   const [guestUser, setGuestUser] = useState<NDIUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for guest user in localStorage
+    // Check for guest user in localStorage first
     const savedGuestUser = localStorage.getItem('guestUser');
     if (savedGuestUser) {
-      setGuestUser(JSON.parse(savedGuestUser));
+      try {
+        setGuestUser(JSON.parse(savedGuestUser));
+      } catch (error) {
+        console.error('Error parsing guest user:', error);
+        localStorage.removeItem('guestUser');
+      }
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
+    if (isLoading) return; // Wait for initial load to complete
+
     const currentUser = user || guestUser;
     
-    // Only redirect if no user at all (neither authenticated nor guest)
-    if (!currentUser && !isAuthenticated && !guestUser) {
-      console.log('No user found, redirecting to homepage');
+    // Only redirect if we've finished loading AND there's no user at all
+    if (!currentUser && !isAuthenticated) {
+      console.log('No user found after loading, redirecting to homepage');
       navigate('/');
       return;
     }
@@ -41,11 +49,10 @@ const Rewards = () => {
       
       setLearnerProfile(profile);
     }
-  }, [isAuthenticated, user, guestUser, navigate]);
+  }, [isAuthenticated, user, guestUser, navigate, isLoading]);
 
-  const currentUser = user || guestUser;
-  
-  if (!currentUser && !learnerProfile) {
+  // Show loading state while determining user status
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 flex items-center justify-center">
         <div className="text-center">
@@ -56,10 +63,29 @@ const Rewards = () => {
     );
   }
 
+  const currentUser = user || guestUser;
+  
+  // Don't render anything if redirecting
+  if (!currentUser) {
+    return null;
+  }
+
+  // Wait for learner profile to be created
+  if (!learnerProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Setting up Rewards...</h2>
+          <p className="text-gray-600">Preparing your rewards dashboard.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <RewardsPage 
-      user={currentUser!}
-      learnerProfile={learnerProfile!}
+      user={currentUser}
+      learnerProfile={learnerProfile}
     />
   );
 };

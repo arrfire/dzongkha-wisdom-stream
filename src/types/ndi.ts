@@ -1,18 +1,12 @@
-
-// src/types/ndi.ts - Bhutan NDI integration types
 export interface NDIUser {
-  citizenId: string;
+  citizenId?: string;
   fullName: string;
-  dateOfBirth?: Date;
   email?: string;
-  phoneNumber?: string;
-  address?: string;
-  institution?: string;
   studentId?: string;
+  institution?: string;
   academicLevel?: string;
-  verificationStatus: 'verified' | 'pending' | 'failed' | 'guest';
+  verificationStatus?: 'verified' | 'pending' | 'failed';
   permissions: string[];
-  lastLogin?: Date;
 }
 
 export interface NDIAuthState {
@@ -25,19 +19,6 @@ export interface NDIAuthState {
   error: string | null;
 }
 
-export interface NDIAuthResponse {
-  success: boolean;
-  user?: NDIUser;
-  error?: string;
-  sessionToken?: string;
-}
-
-export interface NDIVerificationRequest {
-  citizenId: string;
-  biometricData?: string;
-  documentHash?: string;
-}
-
 export interface ProofRequestResult {
   proofRequestThreadId: string;
   proofRequestURL: string;
@@ -47,6 +28,7 @@ export interface ProofRequestResult {
 export interface ProofCheckResult {
   success: boolean;
   presentation?: any;
+  error?: string; // Added error field
 }
 
 export interface FoundationalId {

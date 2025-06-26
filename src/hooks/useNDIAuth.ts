@@ -23,21 +23,30 @@ export const useNDIAuth = () => {
     };
   }, [pollingInterval]);
 
-  const startProofPolling = useCallback((threadId: string) => {
-    console.log('Starting proof polling for thread:', threadId);
+  /**
+   * Starts lightweight polling to check authentication status
+   * With webhooks, this should resolve very quickly
+   */
+  const startAuthenticationPolling = useCallback((threadId: string) => {
+    console.log('🔄 Starting authentication polling for thread:', threadId);
     
     // Clear any existing polling
     if (pollingInterval) {
       clearInterval(pollingInterval);
     }
 
+    let attempts = 0;
+    const maxAttempts = 60; // 3 minutes max (60 * 3 seconds)
+
     const interval = setInterval(async () => {
+      attempts++;
+      console.log(`🔍 Polling attempt ${attempts}/${maxAttempts} for thread:`, threadId);
+      
       try {
-        console.log('Polling proof status for thread:', threadId);
-        const result = await ndiApiService.checkProof(threadId);
+        const result = await ndiApiService.checkAuthenticationStatus(threadId);
         
         if (result.success && result.presentation) {
-          console.log('Proof verification successful!');
+          console.log('🎉 Authentication successful! Processing user data...');
           
           // Parse the presentation to extract user data
           const foundationalId = ndiApiService.parseProofPresentation(result.presentation);
@@ -49,7 +58,7 @@ export const useNDIAuth = () => {
             permissions: ['view_profile', 'access_courses', 'receive_certificates']
           };
           
-          console.log('NDI User authenticated:', ndiUser);
+          console.log('✅ NDI User authenticated:', ndiUser);
           
           setAuthState(prev => ({
             ...prev,
@@ -62,53 +71,60 @@ export const useNDIAuth = () => {
             error: null
           }));
           
-          // Store in session
+          // Store in session for persistence
           sessionStorage.setItem('ndi_auth', JSON.stringify({
             isAuthenticated: true,
             user: ndiUser,
             timestamp: Date.now()
           }));
           
+          console.log('🚀 Redirecting to AI Chat interface...');
+          
           // Clear polling
           clearInterval(interval);
           setPollingInterval(null);
+          
+        } else if (result.error) {
+          console.log('❌ Authentication failed:', result.error);
+          
+          setAuthState(prev => ({
+            ...prev,
+            isLoading: false,
+            error: result.error || 'Authentication failed'
+          }));
+          
+          clearInterval(interval);
+          setPollingInterval(null);
         }
+        // If not success and no error, continue polling
+        
       } catch (error) {
-        console.error('Error polling proof status:', error);
-        // Don't set error state for polling failures, just log them
+        console.error('❌ Error during authentication polling:', error);
+        // Continue polling unless max attempts reached
+      }
+      
+      // Stop polling after max attempts
+      if (attempts >= maxAttempts) {
+        console.log('⏰ Authentication polling timeout reached');
+        clearInterval(interval);
+        setPollingInterval(null);
+        
+        setAuthState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: "Authentication timeout. Please try again."
+        }));
       }
     }, 3000); // Poll every 3 seconds
     
     setPollingInterval(interval);
-    
-    // Clear polling after 5 minutes timeout
-    setTimeout(() => {
-      console.log('Polling timeout reached for thread:', threadId);
-      clearInterval(interval);
-      setPollingInterval(null);
-      
-      // Set timeout error if still loading
-      setAuthState(prev => {
-        if (prev.isLoading && !prev.isAuthenticated) {
-          return {
-            ...prev,
-            isLoading: false,
-            error: "Authentication timeout. Please try again."
-          };
-        }
-        return prev;
-      });
-    }, 300000); // 5 minutes
   }, [pollingInterval]);
 
-  const setupWebhook = async (threadId: string) => {
-    // Skip webhook setup for now - we'll rely on polling instead
-    console.log('Skipping webhook setup, using polling for thread:', threadId);
-    return Promise.resolve();
-  };
-
-  const generateCredentialRequest = async (requiredCredentials: string[] = ['foundational_id']) => {
-    console.log('Generating credential request...');
+  /**
+   * Generates QR code and starts the authentication flow
+   */
+  const generateCredentialRequest = async () => {
+    console.log('🚀 Starting NDI authentication flow...');
     
     setAuthState(prev => ({ 
       ...prev, 
@@ -120,65 +136,43 @@ export const useNDIAuth = () => {
     }));
     
     try {
-      console.log('Calling backend API...');
-      
-      // Call actual backend API
+      // Step 1: Create proof request (backend will handle webhook setup)
+      console.log('📝 Creating proof request...');
       const result = await ndiApiService.createFoundationalIdProofRequest();
       
-      console.log('Backend response received:', result);
+      // Step 2: Generate QR code from the proof request URL
+      console.log('🔳 Generating QR code...');
+      const qrCodeImage = await QRCode.toDataURL(result.proofRequestURL, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
       
-      // Generate QR code from the proofRequestURL
-      let generatedQRCode: string;
-      try {
-        generatedQRCode = await QRCode.toDataURL(result.proofRequestURL, {
-          width: 256,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        });
-        console.log('QR code generated successfully');
-      } catch (qrError) {
-        console.error('Error generating QR code:', qrError);
-        throw new Error('Failed to generate QR code from proof request URL');
-      }
-      
-      // Use the generated QR code image
-      const qrCodeToUse = generatedQRCode;
-      
+      // Step 3: Update state with QR code
       setAuthState(prev => ({
         ...prev,
-        qrCode: qrCodeToUse,
+        qrCode: qrCodeImage,
         threadId: result.proofRequestThreadId,
         deepLinkURL: result.deepLinkURL,
         isLoading: false
       }));
       
-      console.log('State updated with QR code and thread ID');
+      console.log('✅ QR code generated successfully!');
+      console.log('📱 User can now scan the QR code with NDI wallet');
       
-      // Setup webhook (optional, for real-time updates) - skipped for now
-      // await setupWebhook(result.proofRequestThreadId);
-      
-      // Start polling for proof completion
-      startProofPolling(result.proofRequestThreadId);
+      // Step 4: Start polling for authentication completion
+      startAuthenticationPolling(result.proofRequestThreadId);
       
     } catch (error) {
-      console.error('Error generating credential request:', error);
+      console.error('❌ Error in authentication flow:', error);
       
       let errorMessage = "Failed to generate authentication request";
       
       if (error instanceof Error) {
         errorMessage = error.message;
-      }
-      
-      // Add more specific error messages
-      if (errorMessage.includes('Network error')) {
-        errorMessage += "\n\nPlease check:\n1. Your internet connection\n2. Backend server is running\n3. Backend URL is correct";
-      } else if (errorMessage.includes('CORS')) {
-        errorMessage += "\n\nCORS issue: Contact your backend developer to allow requests from this domain.";
-      } else if (errorMessage.includes('Available fields')) {
-        errorMessage += "\n\nThe backend response format doesn't match what the frontend expects. Check the API documentation.";
       }
       
       setAuthState(prev => ({
@@ -189,8 +183,11 @@ export const useNDIAuth = () => {
     }
   };
 
+  /**
+   * Logs out the current user
+   */
   const logout = () => {
-    console.log('Logging out NDI user');
+    console.log('👋 Logging out NDI user');
     
     // Clear any ongoing polling
     if (pollingInterval) {
@@ -209,10 +206,14 @@ export const useNDIAuth = () => {
     });
     
     sessionStorage.removeItem('ndi_auth');
+    console.log('✅ Logout complete');
   };
 
+  /**
+   * Retries the authentication process
+   */
   const retryAuthentication = () => {
-    console.log('Retrying NDI authentication');
+    console.log('🔄 Retrying NDI authentication');
     generateCredentialRequest();
   };
 
@@ -224,19 +225,18 @@ export const useNDIAuth = () => {
         const authData = JSON.parse(stored);
         // Check if session is still valid (24 hours)
         if (Date.now() - authData.timestamp < 24 * 60 * 60 * 1000) {
-          console.log('Restoring NDI session from storage');
+          console.log('🔄 Restoring NDI session from storage');
           setAuthState(prev => ({
             ...prev,
             isAuthenticated: true,
             user: authData.user
           }));
         } else {
-          // Session expired
-          console.log('NDI session expired, removing from storage');
+          console.log('⏰ NDI session expired, removing from storage');
           sessionStorage.removeItem('ndi_auth');
         }
       } catch (error) {
-        console.error('Error parsing stored auth data:', error);
+        console.error('❌ Error parsing stored auth data:', error);
         sessionStorage.removeItem('ndi_auth');
       }
     }
