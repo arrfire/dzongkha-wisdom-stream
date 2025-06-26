@@ -1,4 +1,4 @@
-// src/pages/Index.tsx - Updated for NDI-first AI Master Shifu flow
+// src/pages/Index.tsx - Updated to allow AI access without NDI
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import MasterShifuChat from "@/components/MasterShifuChat";
@@ -14,6 +14,7 @@ import { useNDIAuth } from "@/hooks/useNDIAuth";
 import { learnerProfileService } from "@/services/learnerProfileService";
 import { LearnerProfile } from "@/types/learnerProfile";
 import { NDILogin } from "@/components/NDILogin";
+import { NDIUser } from "@/types/ndi";
 
 const Index = () => {
   const { isAuthenticated, user } = useNDIAuth();
@@ -22,6 +23,8 @@ const Index = () => {
   const [journeys, setJourneys] = useState(journeyData);
   const [showWelcome, setShowWelcome] = useState(true);
   const [showNDILogin, setShowNDILogin] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestUser, setGuestUser] = useState<NDIUser | null>(null);
 
   const stats = [
     { label: "Active Learners", value: "12,547", icon: Users, color: "text-blue-600" },
@@ -32,12 +35,15 @@ const Index = () => {
 
   // Initialize or load learner profile when user authenticates
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if ((isAuthenticated && user) || (guestMode && guestUser)) {
+      const currentUser = user || guestUser;
+      if (!currentUser) return;
+
       let profile = learnerProfileService.getLearnerProfile();
       
-      if (!profile || profile.ndiUser.citizenId !== user.citizenId) {
+      if (!profile || profile.ndiUser.citizenId !== currentUser.citizenId) {
         // Create new profile for this user
-        profile = learnerProfileService.createLearnerProfile(user);
+        profile = learnerProfileService.createLearnerProfile(currentUser);
       } else {
         // Update login activity for existing profile
         profile = learnerProfileService.updateLoginActivity(profile);
@@ -60,7 +66,7 @@ const Index = () => {
       setSelectedJourney(null);
       setShowWelcome(true);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, guestMode, guestUser]);
 
   const handleJourneySelect = (journeyId: string) => {
     const journey = journeys.find(j => j.id === journeyId);
@@ -75,18 +81,33 @@ const Index = () => {
   const handleMissionStart = (missionId: string) => {
     if (selectedJourney && learnerProfile) {
       console.log(`Starting mission ${missionId} in journey ${selectedJourney.id}`);
-      // Mission starting logic - this could update UI or track analytics
     }
   };
 
   const handleCredentialEarned = (credential: any) => {
     console.log('New credential earned:', credential);
-    // Handle credential earning - could show notification, update UI, etc.
   };
 
   const handleLoginSuccess = (userData: any) => {
     setShowNDILogin(false);
     console.log('User authenticated:', userData);
+  };
+
+  const handleGuestMode = () => {
+    // Create a guest user for testing
+    const guest: NDIUser = {
+      citizenId: `guest_${Date.now()}`,
+      fullName: "Guest User",
+      verificationStatus: "guest",
+      permissions: ['view_profile', 'access_courses']
+    };
+    
+    // Save guest user to localStorage for persistence across pages
+    localStorage.setItem('guestUser', JSON.stringify(guest));
+    
+    setGuestUser(guest);
+    setGuestMode(true);
+    setShowNDILogin(false);
   };
 
   const getAchievements = () => {
@@ -108,14 +129,14 @@ const Index = () => {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center p-4">
         <NDILogin 
           onSuccess={handleLoginSuccess}
-          onCancel={() => setShowNDILogin(false)}
+          onCancel={handleGuestMode}
         />
       </div>
     );
   }
 
   // Show welcome page for non-authenticated users
-  if (!isAuthenticated || !user || !learnerProfile) {
+  if (!isAuthenticated && !guestMode) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
         <Header />
@@ -170,9 +191,9 @@ const Index = () => {
                 variant="outline" 
                 size="lg" 
                 className="text-lg px-8 py-4 border-orange-200 hover:bg-orange-50"
-                onClick={() => setShowNDILogin(true)}
+                onClick={handleGuestMode}
               >
-                Explore Journeys
+                Continue without NDI
               </Button>
             </div>
 
@@ -266,7 +287,9 @@ const Index = () => {
     );
   }
 
-  // Show AI chat interface for authenticated users
+  const currentUser = user || guestUser;
+  
+  // Show AI chat interface for authenticated users or guest mode
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
       <Header />
@@ -277,13 +300,34 @@ const Index = () => {
             <Alert className="border-green-200 bg-green-50">
               <Mountain className="h-4 w-4" />
               <AlertDescription>
-                <strong>Welcome back, {user.fullName}!</strong> 
-                {learnerProfile.progress.length > 0 
+                <strong>Welcome, {currentUser?.fullName}!</strong> 
+                {learnerProfile && learnerProfile.progress.length > 0 
                   ? " Ready to continue your Web3 journey?" 
                   : " Let's start your Web3 adventure with Master Shifu!"
                 }
+                {guestMode && (
+                  <span className="block mt-2 text-sm text-orange-600">
+                    You're in guest mode. Sign in with NDI to save your progress and earn credentials.
+                  </span>
+                )}
               </AlertDescription>
             </Alert>
+            
+            {/* Navigation buttons */}
+            <div className="flex space-x-4 mt-4">
+              <Button 
+                onClick={() => window.location.href = '/profile'}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                View Profile
+              </Button>
+              <Button 
+                onClick={() => window.location.href = '/rewards'}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Explore Rewards
+              </Button>
+            </div>
           </div>
         )}
 
@@ -291,7 +335,7 @@ const Index = () => {
           {/* Main Chat Interface */}
           <div className="lg:col-span-2">
             <MasterShifuChat
-              user={user}
+              user={currentUser!}
               journeys={journeys}
               selectedJourney={selectedJourney}
               onJourneySelect={handleJourneySelect}
@@ -311,7 +355,7 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {(() => {
+                {learnerProfile && (() => {
                   const stats = learnerProfileService.getProfileStats(learnerProfile);
                   return (
                     <div className="grid grid-cols-2 gap-4 text-center">

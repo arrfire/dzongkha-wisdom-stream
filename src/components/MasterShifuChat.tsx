@@ -1,4 +1,5 @@
-// src/components/MasterShifuChat.tsx
+
+// src/components/MasterShifuChat.tsx - Enhanced with visual journey selection and YouTube integration
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Sparkles, ExternalLink, Award, BookOpen } from "lucide-react";
+import { Send, Sparkles, ExternalLink, Award, BookOpen, Play, Pause } from "lucide-react";
 import { Journey } from "@/data/journeyData";
 import { NDIUser } from "@/types/ndi";
 import { claudeApiService } from "@/services/claudeApi";
@@ -16,7 +17,7 @@ interface Message {
   content: string;
   sender: 'shifu' | 'user';
   timestamp: Date;
-  type: 'text' | 'journey-selection' | 'lesson' | 'credential-earned';
+  type: 'text' | 'journey-selection' | 'video-lesson' | 'credential-earned';
   metadata?: any;
 }
 
@@ -41,7 +42,19 @@ const MasterShifuChat: React.FC<MasterShifuChatProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // YouTube video mapping for each journey
+  const journeyVideos = {
+    'community-builder': 'dQw4w9WgXcQ', // Replace with actual Blockvocates video IDs
+    'digital-trader': 'dQw4w9WgXcQ',
+    'creative-designer': 'dQw4w9WgXcQ',
+    'visionary-founder': 'dQw4w9WgXcQ',
+    'music-pioneer': 'dQw4w9WgXcQ',
+    'future-developer': 'dQw4w9WgXcQ'
+  };
 
   useEffect(() => {
     initializeChat();
@@ -58,11 +71,14 @@ const MasterShifuChat: React.FC<MasterShifuChatProps> = ({
       id: '1',
       content: `🙏 Namaste ${user.fullName}! I am Master Shifu, your AI guide on this Web3 learning adventure.
 
-I see you're from ${user.institution} - how exciting! Bhutan is leading the world in digital innovation with NDI, and now you're about to become part of the Web3 revolution.
+${user.verificationStatus === 'guest' ? 
+  `Welcome, traveler! You're exploring as a guest - your journey will be just as magical, though signing in with NDI would let you earn verified credentials and save your progress.` : 
+  `I see you're from ${user.institution || 'Bhutan'} - how exciting! You're about to become part of the Web3 revolution.`
+}
 
-Before we begin your personalized journey, I highly recommend checking out this guide to help you pick the perfect path: https://x.com/blockvocates/status/1800453480739660033
+Before we begin your personalized journey, I highly recommend checking out this guide: https://x.com/blockvocates/status/1800453480739660033
 
-Ready to choose your destiny? Each journey will unlock unique skills and exciting opportunities! 🚀`,
+Ready to choose your destiny? Each journey will unlock unique skills through immersive video lessons and interactive learning! 🚀`,
       sender: 'shifu',
       timestamp: new Date(),
       type: 'text'
@@ -71,7 +87,7 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
     if (!selectedJourney) {
       const journeySelectionMessage: Message = {
         id: '2',
-        content: 'Choose your Web3 adventure:',
+        content: 'Choose your Web3 adventure by selecting one of these visual journeys:',
         sender: 'shifu',
         timestamp: new Date(),
         type: 'journey-selection',
@@ -90,22 +106,26 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
     setIsTyping(true);
     try {
       const response = await claudeApiService.sendMessage(
-        [{ role: 'user', content: `I've already selected ${selectedJourney.title}. What should I do next?` }],
+        [{ role: 'user', content: `I've selected ${selectedJourney.title}. Show me the video lessons.` }],
         user,
         selectedJourney
       );
 
-      const shifuMessage: Message = {
+      const videoMessage: Message = {
         id: Date.now().toString(),
         content: response,
         sender: 'shifu',
         timestamp: new Date(),
-        type: 'text'
+        type: 'video-lesson',
+        metadata: { 
+          journey: selectedJourney,
+          videoId: journeyVideos[selectedJourney.id as keyof typeof journeyVideos]
+        }
       };
 
-      setMessages(prev => [...prev, shifuMessage]);
+      setMessages(prev => [...prev, videoMessage]);
     } catch (error) {
-      console.error('Error getting journey continuation:', error);
+      console.error('Error getting journey content:', error);
     } finally {
       setIsTyping(false);
     }
@@ -128,31 +148,41 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
     setIsTyping(true);
     try {
       const response = await claudeApiService.sendMessage(
-        [...conversationHistory, { role: 'user', content: `I choose: ${journey.title}` }],
+        [...conversationHistory, { role: 'user', content: `I choose: ${journey.title}. Show me video lessons.` }],
         user,
         journey
       );
 
-      const shifuResponse: Message = {
+      const videoResponse: Message = {
         id: (Date.now() + 1).toString(),
         content: response,
         sender: 'shifu',
         timestamp: new Date(),
-        type: 'text'
+        type: 'video-lesson',
+        metadata: { 
+          journey,
+          videoId: journeyVideos[journey.id as keyof typeof journeyVideos]
+        }
       };
 
-      setMessages(prev => [...prev, shifuResponse]);
+      setMessages(prev => [...prev, videoResponse]);
       setConversationHistory(prev => [...prev, { role: 'assistant', content: response }]);
+      setCurrentVideoId(journeyVideos[journey.id as keyof typeof journeyVideos]);
     } catch (error) {
       console.error('Error getting journey response:', error);
       const fallbackResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: `Excellent choice! ${journey.title} is perfect for you. Let's start your first mission when you're ready!`,
+        content: `Excellent choice! ${journey.title} is perfect for you. Let's start with your first video lesson!`,
         sender: 'shifu',
         timestamp: new Date(),
-        type: 'text'
+        type: 'video-lesson',
+        metadata: { 
+          journey,
+          videoId: journeyVideos[journey.id as keyof typeof journeyVideos]
+        }
       };
       setMessages(prev => [...prev, fallbackResponse]);
+      setCurrentVideoId(journeyVideos[journey.id as keyof typeof journeyVideos]);
     } finally {
       setIsTyping(false);
     }
@@ -178,29 +208,6 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
     setIsTyping(true);
 
     try {
-      // Check for special commands
-      if (currentInput.toLowerCase().includes('start mission') && selectedJourney) {
-        const nextMission = selectedJourney.missions.find(m => !m.completed);
-        if (nextMission) {
-          onMissionStart(nextMission.id);
-          const response = await claudeApiService.generateMissionContent(nextMission, user, selectedJourney);
-          
-          const shifuResponse: Message = {
-            id: Date.now().toString(),
-            content: response,
-            sender: 'shifu',
-            timestamp: new Date(),
-            type: 'lesson',
-            metadata: { mission: nextMission }
-          };
-          
-          setMessages(prev => [...prev, shifuResponse]);
-          setConversationHistory(prev => [...prev, { role: 'assistant', content: response }]);
-          return;
-        }
-      }
-
-      // Regular conversation with Claude
       const response = await claudeApiService.sendMessage(
         newConversationHistory,
         user,
@@ -244,21 +251,35 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
       return (
         <div className="space-y-4">
           <p className="text-gray-700">{message.content}</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {journeys.map((journey) => (
               <Card 
                 key={journey.id}
-                className="cursor-pointer border-2 hover:border-orange-300 transition-all duration-200 hover:shadow-lg"
+                className="cursor-pointer border-2 hover:border-orange-300 transition-all duration-200 hover:shadow-lg group"
                 onClick={() => handleJourneyChoice(journey)}
               >
                 <CardContent className="p-4 text-center">
-                  <journey.icon className={`h-12 w-12 mx-auto mb-3 ${journey.color}`} />
-                  <h3 className="font-bold text-lg mb-2">{journey.title}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{journey.description}</p>
+                  <div className="relative mb-3">
+                    <div className={`h-20 w-20 mx-auto rounded-lg bg-gradient-to-br ${
+                      journey.id === 'community-builder' ? 'from-blue-400 to-blue-600' :
+                      journey.id === 'digital-trader' ? 'from-green-400 to-green-600' :
+                      journey.id === 'creative-designer' ? 'from-purple-400 to-purple-600' :
+                      journey.id === 'visionary-founder' ? 'from-orange-400 to-orange-600' :
+                      journey.id === 'music-pioneer' ? 'from-pink-400 to-pink-600' :
+                      'from-indigo-400 to-indigo-600'
+                    } flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                      <journey.icon className="h-10 w-10 text-white" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-1">
+                      <Play className="h-3 w-3" />
+                    </div>
+                  </div>
+                  <h3 className="font-bold text-sm mb-2">{journey.title}</h3>
+                  <p className="text-xs text-gray-600 mb-2">{journey.description}</p>
                   <Badge variant={
                     journey.difficulty === 'Beginner' ? 'secondary' :
                     journey.difficulty === 'Intermediate' ? 'default' : 'destructive'
-                  }>
+                  } className="text-xs">
                     {journey.difficulty}
                   </Badge>
                 </CardContent>
@@ -280,18 +301,31 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
       );
     }
 
-    if (message.type === 'lesson' && message.metadata?.mission) {
+    if (message.type === 'video-lesson' && message.metadata?.videoId) {
       return (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-              <h4 className="font-bold text-blue-800">Mission: {message.metadata.mission.title}</h4>
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-3">
+              <BookOpen className="h-5 w-5 text-orange-600" />
+              <h4 className="font-bold text-orange-800">
+                {message.metadata.journey?.title} - Video Lesson
+              </h4>
             </div>
-            <p className="text-sm text-blue-700 mb-3">{message.metadata.mission.description}</p>
-            <Badge variant="outline" className="text-blue-600 border-blue-300">
-              Duration: {message.metadata.mission.duration}
-            </Badge>
+            <div className="relative">
+              <iframe
+                width="100%"
+                height="240"
+                src={`https://www.youtube.com/embed/${message.metadata.videoId}?enablejsapi=1`}
+                title="Web3 Learning Video"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="rounded-lg"
+              ></iframe>
+            </div>
+            <p className="text-sm text-gray-600 mt-3">
+              📹 Watch the video above and ask me any questions below! I'm here to help clarify concepts and guide your learning.
+            </p>
           </div>
           <p className="text-gray-700 whitespace-pre-wrap">{message.content}</p>
         </div>
@@ -316,7 +350,7 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
   };
 
   return (
-    <Card className="h-[600px] flex flex-col border-2 border-orange-100">
+    <Card className="h-[700px] flex flex-col border-2 border-orange-100">
       <CardHeader className="border-b border-orange-100">
         <div className="flex items-center space-x-3">
           <Avatar>
@@ -343,7 +377,7 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[80%] ${
+                <div className={`max-w-[90%] ${
                   message.sender === 'user'
                     ? 'bg-orange-500 text-white rounded-lg p-3'
                     : 'bg-gray-50 rounded-lg p-3'
@@ -375,7 +409,7 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask Master Shifu anything about Web3..."
+              placeholder={currentVideoId ? "Ask me about the video or any Web3 concept..." : "Ask Master Shifu anything about Web3..."}
               className="flex-1"
               disabled={isTyping}
             />
@@ -388,23 +422,16 @@ Ready to choose your destiny? Each journey will unlock unique skills and excitin
             </Button>
           </div>
           
-          {!selectedJourney && (
+          {currentVideoId && (
             <p className="text-xs text-gray-500 mt-2 text-center">
-              Choose your journey above to start your personalized learning experience!
+              💡 Watching a video? Ask me questions about what you're learning!
             </p>
           )}
           
-          {selectedJourney && (
-            <div className="flex justify-center mt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setInputValue('start mission')}
-                className="text-orange-600 border-orange-300 hover:bg-orange-50"
-              >
-                Start Next Mission
-              </Button>
-            </div>
+          {!selectedJourney && (
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Choose your visual journey above to start your personalized video learning experience!
+            </p>
           )}
         </div>
       </CardContent>
