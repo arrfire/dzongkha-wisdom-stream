@@ -1,124 +1,22 @@
+// src/hooks/useNDIAuth.ts
 import { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import type { NDIUser, NDIAuthState } from '@/types/ndi';
 import { ndiApiService } from '@/services/ndiApiService';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate for redirection
 
 export const useNDIAuth = () => {
+  const navigate = useNavigate(); // Initialize useNavigate hook
+
   const [authState, setAuthState] = useState<NDIAuthState>({
     isAuthenticated: false,
     isLoading: false,
     qrCode: null,
-    user: null,
+    user: null, // user will be null until actual proof data is received (if needed later)
     error: null
   });
 
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-
-  // Clear polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
-  }, [pollingInterval]);
-
-  /**
-   * Starts lightweight polling to check authentication status
-   * With webhooks, this should resolve very quickly
-   */
-  const startAuthenticationPolling = useCallback((threadId: string) => {
-    console.log('🔄 Starting authentication polling for thread:', threadId);
-    
-    // Clear any existing polling
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-    }
-
-    let attempts = 0;
-    const maxAttempts = 60; // 3 minutes max (60 * 3 seconds)
-
-    const interval = setInterval(async () => {
-      attempts++;
-      console.log(`🔍 Polling attempt ${attempts}/${maxAttempts} for thread:`, threadId);
-      
-      try {
-        const result = await ndiApiService.checkAuthenticationStatus(threadId);
-        
-        if (result.success && result.presentation) {
-          console.log('🎉 Authentication successful! Processing user data...');
-          
-          // Parse the presentation to extract user data
-          const foundationalId = ndiApiService.parseProofPresentation(result.presentation);
-          
-          const ndiUser: NDIUser = {
-            citizenId: foundationalId.idNumber,
-            fullName: foundationalId.fullName,
-            verificationStatus: 'verified',
-            permissions: ['view_profile', 'access_courses', 'receive_certificates']
-          };
-          
-          console.log('✅ NDI User authenticated:', ndiUser);
-          
-          setAuthState(prev => ({
-            ...prev,
-            isAuthenticated: true,
-            user: ndiUser,
-            qrCode: null,
-            threadId: undefined,
-            deepLinkURL: undefined,
-            isLoading: false,
-            error: null
-          }));
-          
-          // Store in session for persistence
-          sessionStorage.setItem('ndi_auth', JSON.stringify({
-            isAuthenticated: true,
-            user: ndiUser,
-            timestamp: Date.now()
-          }));
-          
-          console.log('🚀 Redirecting to AI Chat interface...');
-          
-          // Clear polling
-          clearInterval(interval);
-          setPollingInterval(null);
-          
-        } else if (result.error) {
-          console.log('❌ Authentication failed:', result.error);
-          
-          setAuthState(prev => ({
-            ...prev,
-            isLoading: false,
-            error: result.error || 'Authentication failed'
-          }));
-          
-          clearInterval(interval);
-          setPollingInterval(null);
-        }
-        // If not success and no error, continue polling
-        
-      } catch (error) {
-        console.error('❌ Error during authentication polling:', error);
-        // Continue polling unless max attempts reached
-      }
-      
-      // Stop polling after max attempts
-      if (attempts >= maxAttempts) {
-        console.log('⏰ Authentication polling timeout reached');
-        clearInterval(interval);
-        setPollingInterval(null);
-        
-        setAuthState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: "Authentication timeout. Please try again."
-        }));
-      }
-    }, 3000); // Poll every 3 seconds
-    
-    setPollingInterval(interval);
-  }, [pollingInterval]);
+  // Removed pollingInterval state and useEffect cleanup as polling is no longer needed
 
   /**
    * Generates QR code and starts the authentication flow
@@ -136,8 +34,10 @@ export const useNDIAuth = () => {
     }));
     
     try {
-      // Step 1: Create proof request (backend will handle webhook setup)
-      console.log('📝 Creating proof request...');
+      // Step 1: Create proof request (backend will handle webhook setup internally)
+      // The `createFoundationalIdProofRequest` method already calls `subscribeViaBackend`
+      // If this call succeeds, it means the webhook subscription was initiated.
+      console.log('📝 Creating proof request and subscribing to webhook via backend...');
       const result = await ndiApiService.createFoundationalIdProofRequest();
       
       // Step 2: Generate QR code from the proof request URL
@@ -151,21 +51,23 @@ export const useNDIAuth = () => {
         }
       });
       
-      // Step 3: Update state with QR code
+      // Step 3: Update state with QR code and immediately consider authenticated for redirect
       setAuthState(prev => ({
         ...prev,
+        isAuthenticated: true, // Webhook subscription successful, proceed to chat
+        user: null, // User data will be populated later if proof processing is required on frontend
         qrCode: qrCodeImage,
         threadId: result.proofRequestThreadId,
         deepLinkURL: result.deepLinkURL,
         isLoading: false
       }));
       
-      console.log('✅ QR code generated successfully!');
-      console.log('📱 User can now scan the QR code with NDI wallet');
+      console.log('✅ QR code generated successfully and webhook subscribed!');
+      console.log('🚀 Redirecting to AI Chat interface...');
       
-      // Step 4: Start polling for authentication completion
-      startAuthenticationPolling(result.proofRequestThreadId);
-      
+      // Redirect to chat page immediately after successful webhook subscription initiation
+      navigate('/chatpage'); 
+
     } catch (error) {
       console.error('❌ Error in authentication flow:', error);
       
@@ -189,11 +91,11 @@ export const useNDIAuth = () => {
   const logout = () => {
     console.log('👋 Logging out NDI user');
     
-    // Clear any ongoing polling
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
-    }
+    // Clear any ongoing polling (no longer applicable but kept for safety if refactored)
+    // if (pollingInterval) {
+    //   clearInterval(pollingInterval);
+    //   setPollingInterval(null);
+    // }
     
     setAuthState({
       isAuthenticated: false,

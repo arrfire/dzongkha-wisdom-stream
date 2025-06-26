@@ -1,3 +1,4 @@
+// src/services/ndiApiService.ts
 import { 
   ProofRequestResult, 
   ProofCheckResult, 
@@ -15,14 +16,16 @@ class NDIApiService {
   constructor() {
     this.baseUrl = import.meta.env.VITE_NDI_BACKEND_URL || '/api';
     this.ndiWebhookUrl = import.meta.env.VITE_WEBHOOK_BASE_URL || 'https://demo-client.bhutanndi.com/webhook/v1';
+    // IMPORTANT: Ensure this token is up-to-date and valid.
     this.ndiToken = 'eyJraWQiOiJzd3hhdGVQK1lmR2liT2ZiTmNjWGpjYkptWnVqNGlrXC80SWh5TW9JdFhLTT0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIzdHE3aG8yM2c1cmlzbmRkOTBhNzZqcmU1ZiIsInRva2VuX3VzZSI6ImFjY2VzcyIsInNjb3BlIjoibmRpLXNlcnZpY2VcL3JlYWQud3JpdGUiLCJhdXRoX3RpbWUiOjE3NTA5MzgzMjQsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC5hcC1zb3V0aGVhc3QtMS5hbWF6b25hd3MuY29tXC9hcC1zb3V0aGVhc3QtMV9wdFRmQ2VNYnkiLCJleHAiOjE3NTEwMjQ3MjQsImlhdCI6MTc1MDkzODMyNCwidmVyc2lvbiI6MiwianRpIjoiM2ExOTYzOGQtZWVmZi00NzA3LTkxOGEtMjAyMDc1NGYwYTc2IiwiY2xpZW50X2lkIjoiM3RxN2hvMjNnNXJpc25kZDkwYTc2anJlNWYifQ.LwHWW5e8CfkRCQ34WIIgMSOeK_oBxIlJ_WKEd3tJZ-Ami3OUtXiDaQtd6O8MnlsZWjRRAO-fXfIXdTt099hsJzrNK2LEER5Vxb5KQRNFstoiga49jMw-8cyVW96KNFMm20rg53htSnDOV3wnXGzMqF9eVnH230QtW6tXo7XGERMONyi_mk4F5f1Vi9uNw79p2QJsw46w-h7-lwGqHyffdXGq1UI3UDT2auDNHTW3tlCq-jxqucvQunB6B3Atbx2PQrEOuewYUimYz_e42o-JKjUkho3BOru0joEO0UTn2Ov7EiMHdzy1OW7O2vn3HNOL6J3xYwWBvMhU6G9k_1d5ww';
-    this.webhookId = import.meta.env.VITE_WEBHOOK_ID || 'edustream30';
+    this.webhookId = import.meta.env.VITE_WEBHOOK_ID || 'edustream40';
     console.log('NDI Backend URL:', this.baseUrl);
     console.log('NDI Webhook URL:', this.ndiWebhookUrl);
     console.log('Webhook ID:', this.webhookId);
   } 
 
   async createFoundationalIdProofRequest(): Promise<ProofRequestResult> {
+    // This URL remains as /api/Auth/ndi/request
     const fullUrl = `${this.baseUrl}/api/Auth/ndi/request`;
     console.log('Making request to:', fullUrl);
     
@@ -75,13 +78,14 @@ class NDIApiService {
       console.log('- Proof Request URL:', proofRequestURL);
       console.log('- Deep Link URL:', deepLinkURL);
       
-      // STEP 3: Subscribe to webhook using the threadId - THIS IS THE MISSING PIECE
-      console.log('🔗 Subscribing to webhook for thread:', proofRequestThreadId);
+      // STEP 3: Subscribe to webhook using the threadId via backend
+      console.log('🔗 Subscribing to webhook for thread via backend:', proofRequestThreadId);
       try {
-        await this.subscribeToNDIWebhook(proofRequestThreadId);
-        console.log('✅ Successfully subscribed to NDI webhook');
+        // This still calls your backend's /api/ndi/webhook/subscribe endpoint
+        await this.subscribeViaBackend(proofRequestThreadId);
+        console.log('✅ Successfully subscribed to NDI webhook via backend');
       } catch (subscriptionError) {
-        console.error('❌ Failed to subscribe to webhook:', subscriptionError);
+        console.error('❌ Failed to subscribe to webhook via backend:', subscriptionError);
         // Don't throw here - let the auth continue, but log the error
         console.warn('Continuing with authentication despite webhook subscription failure');
       }
@@ -104,48 +108,40 @@ class NDIApiService {
   }
 
   /**
-   * NEW METHOD: Subscribe to NDI webhook for the given thread
-   * This performs Step 3 of the authentication process
+   * NEW METHOD: Subscribe to NDI webhook via backend
+   * This avoids CORS issues by routing through your backend
    */
-  async subscribeToNDIWebhook(threadId: string): Promise<any> {
-    const subscribeUrl = `${this.ndiWebhookUrl}/subscribe`;
-    console.log('Subscribing to NDI webhook at:', subscribeUrl);
-    console.log('With webhook ID:', this.webhookId);
-    console.log('With thread ID:', threadId);
+  async subscribeViaBackend(threadId: string): Promise<any> {
+    console.log('Subscribing to NDI webhook via backend for thread:', threadId);
     
     try {
-      const response = await fetch(subscribeUrl, {
+      // This calls your backend's /api/ndi/webhook/subscribe endpoint
+      const response = await fetch(`${this.baseUrl}/api/ndi/webhook/subscribe`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Accept': '*/*',
-          'Authorization': `Bearer ${this.ndiToken}` // Add authorization header
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
-          webhookId: this.webhookId,
-          threadId: threadId
+          threadId: threadId,
+          webhookId: this.webhookId
         })
       });
       
-      console.log('Webhook subscription response status:', response.status);
-      
-      if (response.status === 202) {
-        console.log('✅ Webhook subscription accepted (202)');
-        return { status: 'accepted' };
-      }
+      console.log('Backend webhook subscription response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Webhook subscription error response:', errorText);
-        throw new Error(`Failed to subscribe to NDI webhook: ${response.status} - ${errorText}`);
+        console.error('Backend webhook subscription error:', errorText);
+        throw new Error(`Failed to subscribe via backend: ${response.status} - ${errorText}`);
       }
       
-      const responseData = await response.text();
-      console.log('Webhook subscription response:', responseData);
+      const responseData = await response.json();
+      console.log('Backend webhook subscription response:', responseData);
       
       return responseData;
     } catch (error) {
-      console.error('Error subscribing to NDI webhook:', error);
+      console.error('Error subscribing via backend:', error);
       throw error;
     }
   }
@@ -176,18 +172,21 @@ class NDIApiService {
         }
       } else if (webhookResponse.status === 404) {
         console.log('Webhook: Proof not ready yet (404)');
-        return { success: false, presentation: null };
+        return { success: false, presentation: null, error: "Proof not ready yet via webhook (404)" }; // Added error message
       }
-    } catch (webhookError) {
+      // Added a generic error return for non-200, non-404 responses or other issues
+      const errorText = await webhookResponse.text();
+      return { success: false, presentation: null, error: `Webhook check failed: ${webhookResponse.status} - ${errorText}` };
+    } catch (webhookError: any) {
       console.error('Webhook check failed:', webhookError);
+      return { success: false, presentation: null, error: `Webhook check network error: ${webhookError.message}` };
     }
-    
-    return { success: false, presentation: null };
   }
 
   async checkProofDirectAPI(threadId: string): Promise<ProofCheckResult> {
     // Direct API check as fallback (only use this if webhook is not working)
-    const directUrl = `${this.baseUrl}/api/Auth/ndi/proof-check/${threadId}`;
+    // Reverted this URL to use the 'Auth' segment to match your backend's NdiService
+    const directUrl = `${this.baseUrl}/api/Auth/ndi/proof-check/${threadId}`; 
     console.log('Checking proof via direct API at:', directUrl);
     
     try {
@@ -201,12 +200,12 @@ class NDIApiService {
       if (!response.ok) {
         if (response.status === 404) {
           console.log('Direct API: Proof not ready yet (404)');
-          return { success: false, presentation: null };
+          return { success: false, presentation: null, error: "Proof not ready yet via direct API (404)" }; // Added error message
         }
         console.error('Direct API proof check failed:', response.status);
         const errorText = await response.text();
         console.error('Direct API error response:', errorText);
-        return { success: false, presentation: null };
+        return { success: false, presentation: null, error: `Direct API check failed: ${response.status} - ${errorText}` };
       }
       
       const data = await response.json();
@@ -216,9 +215,9 @@ class NDIApiService {
         success: data.success || data.verified || data.completed || false,
         presentation: data.presentation || data.proof || data.data || null
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking proof via direct API:', error);
-      return { success: false, presentation: null };
+      return { success: false, presentation: null, error: `Direct API check network error: ${error.message}` };
     }
   }
 
@@ -260,10 +259,10 @@ class NDIApiService {
     }
   }
 
-  // DEPRECATED: Use subscribeToNDIWebhook instead
+  // DEPRECATED: Use subscribeViaBackend instead
   async subscribeThread(request: ProofSubscriptionRequest): Promise<any> {
-    console.warn('subscribeThread is deprecated, use subscribeToNDIWebhook instead');
-    return this.subscribeToNDIWebhook(request.threadId);
+    console.warn('subscribeThread is deprecated, use subscribeViaBackend instead');
+    return this.subscribeViaBackend(request.threadId);
   }
 
   parseProofPresentation(payload: any): FoundationalId {
@@ -332,9 +331,9 @@ class NDIApiService {
   // Utility method to setup webhook notifications (called from frontend if needed)
   async setupWebhookForThread(threadId: string): Promise<void> {
     try {
-      // This now calls the actual NDI webhook subscription
+      // This now calls the backend subscription method
       console.log('Setting up webhook for thread:', threadId);
-      await this.subscribeToNDIWebhook(threadId);
+      await this.subscribeViaBackend(threadId);
     } catch (error) {
       console.error('Error setting up webhook for thread:', error);
       throw error;
