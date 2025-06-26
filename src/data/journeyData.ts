@@ -10,6 +10,31 @@ export interface Mission {
   videoUrl?: string;
   exercises?: string[];
   completed: boolean;
+    aiKeywords?: string[]; // For AI to understand content
+  prerequisiteConcepts?: string[];
+  learningObjectives?: string[];
+  adaptiveContent?: {
+    beginner: string;
+    intermediate: string;
+    advanced: string;
+  };
+}
+
+// Add these interfaces at the top
+export interface LearnerProfile {
+  id: string;
+  ndiId?: string;
+  language: 'english' | 'dzongkha';
+  selectedJourney: string;
+  currentMission: string;
+  completedMissions: string[];
+  learningStyle: 'visual' | 'reading' | 'hands-on' | 'social';
+  experienceLevel: 'complete-beginner' | 'basic' | 'intermediate' | 'advanced';
+  timeCommitment: '1-2' | '3-5' | '5-10' | '10+';
+  goals: string[];
+  strugglingConcepts: string[];
+  masteredConcepts: string[];
+  consecutiveDays: number;
 }
 
 export interface Journey {

@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import RewardsPage from "@/components/RewardsPage";
 import { useNDIAuth } from "@/hooks/useNDIAuth";
-import { learnerProfileService } from "@/services/learnerProfileService";
+// Corrected import: import the specific instance and alias it
+import { enhancedLearnerProfileServiceInstance as learnerProfileService } from "@/services/enhancedLearnerProfileService";
 import { LearnerProfile } from "@/types/learnerProfile";
 import { NDIUser } from "@/types/ndi";
 
@@ -45,6 +46,9 @@ const Rewards = () => {
       
       if (!profile || profile.ndiUser.citizenId !== currentUser.citizenId) {
         profile = learnerProfileService.createLearnerProfile(currentUser);
+      } else {
+        // Update login activity for existing profile
+        profile = learnerProfileService.updateLoginActivity(profile); // Ensure this is called only if profile exists
       }
       
       setLearnerProfile(profile);

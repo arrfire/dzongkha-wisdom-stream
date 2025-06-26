@@ -1,10 +1,11 @@
-// src/components/MissionView.tsx - Updated with video integration
+// src/components/MissionView.tsx - Fixed version with proper imports
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, CheckCircle } from "lucide-react";
 import { Mission, Journey } from "@/data/journeyData";
-import VideoLessonDisplay from "./VideoLessonDisplay";
+import VideoLessonDisplay from "./EnhancedVideoLessonDisplay";
 
 interface MissionViewProps {
   mission: Mission;
@@ -14,19 +15,37 @@ interface MissionViewProps {
   onComplete: (missionId: string) => void;
 }
 
-const MissionView = ({ mission, journey, missionNumber, onBack, onComplete }: MissionViewProps) => {
+const MissionView: React.FC<MissionViewProps> = ({ 
+  mission, 
+  journey, 
+  missionNumber, 
+  onBack, 
+  onComplete 
+}) => {
   const formatContent = (content: string) => {
     return content.split('\n').map((line, index) => {
       if (line.startsWith('**') && line.endsWith('**')) {
-        return <h3 key={index} className="font-bold text-lg mt-4 mb-2">{line.slice(2, -2)}</h3>;
+        return (
+          <h3 key={index} className="font-bold text-lg mt-4 mb-2">
+            {line.slice(2, -2)}
+          </h3>
+        );
       }
       if (line.startsWith('- ')) {
-        return <li key={index} className="ml-4 mb-1">{line.slice(2)}</li>;
+        return (
+          <li key={index} className="ml-4 mb-1">
+            {line.slice(2)}
+          </li>
+        );
       }
       if (line.trim() === '') {
         return <br key={index} />;
       }
-      return <p key={index} className="mb-2 leading-relaxed">{line}</p>;
+      return (
+        <p key={index} className="mb-2 leading-relaxed">
+          {line}
+        </p>
+      );
     });
   };
 
@@ -52,7 +71,11 @@ const MissionView = ({ mission, journey, missionNumber, onBack, onComplete }: Mi
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
                   mission.completed ? 'bg-green-500' : 'bg-orange-500'
                 }`}>
-                  {mission.completed ? <CheckCircle className="h-5 w-5" /> : `M${missionNumber}`}
+                  {mission.completed ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : (
+                    `M${missionNumber}`
+                  )}
                 </div>
                 <div>
                   <CardTitle className="text-2xl">{mission.title}</CardTitle>

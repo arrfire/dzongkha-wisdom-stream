@@ -1,7 +1,7 @@
-// src/pages/Index.tsx - Updated to allow AI access without NDI
+// src/pages/Index.tsx - Fixed MasterShifuChat props
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import MasterShifuChat from "@/components/MasterShifuChat";
+import MasterShifuChat from "@/components/EnhancedMasterShifuChat";
 import QuizCard from "@/components/QuizCard";
 import AchievementBadge from "@/components/AchievementBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Users, BookOpen, Coins, TrendingUp, Mountain, ExternalLink } from "luci
 import { journeyData, Journey } from "@/data/journeyData";
 import { Achievement } from "@/types/achievement";
 import { useNDIAuth } from "@/hooks/useNDIAuth";
-import { learnerProfileService } from "@/services/learnerProfileService";
+import { enhancedLearnerProfileServiceInstance as learnerProfileService } from "@/services/enhancedLearnerProfileService";
 import { LearnerProfile } from "@/types/learnerProfile";
 import { NDILogin } from "@/components/NDILogin";
 import { NDIUser } from "@/types/ndi";
@@ -66,7 +66,7 @@ const Index = () => {
       setSelectedJourney(null);
       setShowWelcome(true);
     }
-  }, [isAuthenticated, user, guestMode, guestUser]);
+  }, [isAuthenticated, user, guestMode, guestUser, journeys]); // Added journeys to dependency array
 
   const handleJourneySelect = (journeyId: string) => {
     const journey = journeys.find(j => j.id === journeyId);
@@ -81,11 +81,40 @@ const Index = () => {
   const handleMissionStart = (missionId: string) => {
     if (selectedJourney && learnerProfile) {
       console.log(`Starting mission ${missionId} in journey ${selectedJourney.id}`);
+      // Logic to update learner profile for mission start if needed
+    }
+  };
+
+  // Define onMissionComplete handler for MasterShifuChat
+  const handleMissionComplete = (missionId: string, timeSpent: number) => {
+    if (selectedJourney && learnerProfile) {
+      console.log(`Mission ${missionId} completed in ${selectedJourney.title} in ${timeSpent} seconds.`);
+      // This is a placeholder; actual mission completion logic should reside in learnerProfileService
+      // and be called through onProfileUpdate if it modifies the profile.
+      // Or MasterShifuChat directly calls enhancedLearnerProfileService.completeMissionWithTracking
+      // and then triggers onProfileUpdate.
     }
   };
 
   const handleCredentialEarned = (credential: any) => {
     console.log('New credential earned:', credential);
+    // You might want to update learner profile here or trigger a toast/modal
+  };
+
+  // Define onProfileUpdate handler for MasterShifuChat
+  const handleProfileUpdate = (profile: LearnerProfile) => {
+    setLearnerProfile(profile);
+    // Re-evaluate selected journey based on updated profile if necessary
+    if (profile.progress.length > 0) {
+      const currentJourney = journeys.find(j => 
+        profile.progress.some(p => p.journeyId === j.id && p.overallProgress < 100)
+      );
+      if (currentJourney) {
+        setSelectedJourney(currentJourney);
+      } else {
+        setSelectedJourney(null); // All journeys completed or no current in-progress journey
+      }
+    }
   };
 
   const handleLoginSuccess = (userData: any) => {
@@ -94,7 +123,6 @@ const Index = () => {
   };
 
   const handleGuestMode = () => {
-    // Create a guest user for testing
     const guest: NDIUser = {
       citizenId: `guest_${Date.now()}`,
       fullName: "Guest User",
@@ -102,7 +130,6 @@ const Index = () => {
       permissions: ['view_profile', 'access_courses']
     };
     
-    // Save guest user to localStorage for persistence across pages
     localStorage.setItem('guestUser', JSON.stringify(guest));
     
     setGuestUser(guest);
@@ -123,7 +150,6 @@ const Index = () => {
     }));
   };
 
-  // Show NDI login modal when user clicks sign in
   if (showNDILogin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center p-4">
@@ -135,7 +161,6 @@ const Index = () => {
     );
   }
 
-  // Show welcome page for non-authenticated users
   if (!isAuthenticated && !guestMode) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
@@ -289,7 +314,6 @@ const Index = () => {
 
   const currentUser = user || guestUser;
   
-  // Show AI chat interface for authenticated users or guest mode
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
       <Header />
@@ -334,13 +358,17 @@ const Index = () => {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Chat Interface */}
           <div className="lg:col-span-2">
+            {/* Pass required props to MasterShifuChat */}
             <MasterShifuChat
               user={currentUser!}
               journeys={journeys}
               selectedJourney={selectedJourney}
+              learnerProfile={learnerProfile || undefined} // Pass learnerProfile, make it optional as MasterShifuChatProps allows
               onJourneySelect={handleJourneySelect}
               onMissionStart={handleMissionStart}
+              onMissionComplete={handleMissionComplete} // Added missing prop
               onCredentialEarned={handleCredentialEarned}
+              onProfileUpdate={handleProfileUpdate} // Added missing prop
             />
           </div>
 

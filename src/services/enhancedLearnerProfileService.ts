@@ -1,10 +1,10 @@
-// src/services/learnerProfileService.ts
+// src/services/enhancedLearnerProfileService.ts - Updated export of the instance
 import { NDIUser } from "@/types/ndi";
 import { LearnerProfile, LearnerProgress, NDICredential, ConversationEntry } from "@/types/learnerProfile";
-import { LearnerAchievement } from "@/types/achievement";
+import { LearnerAchievement } from "@/types/achievement"; // Ensure LearnerAchievement is imported from correct type file
 import { Journey, Mission } from "@/data/journeyData";
 
-class LearnerProfileService {
+class EnhancedLearnerProfileService {
   private readonly STORAGE_KEY = 'edustream_learner_profile';
 
   createLearnerProfile(ndiUser: NDIUser): LearnerProfile {
@@ -23,7 +23,12 @@ class LearnerProfileService {
       joinDate: new Date(),
       lastLoginDate: new Date(),
       totalLogins: 1,
-      favoriteJourneys: []
+      favoriteJourneys: [],
+      preferences: {
+        language: 'en',
+        notifications: true,
+        publicProfile: false
+      }
     };
 
     this.saveLearnerProfile(profile);
@@ -50,6 +55,18 @@ class LearnerProfileService {
         profile.achievements.forEach((a: LearnerAchievement) => {
           a.earnedDate = new Date(a.earnedDate);
         });
+        // Ensure preferences object exists for older profiles
+        if (!profile.preferences) {
+          profile.preferences = {
+            language: 'en',
+            notifications: true,
+            publicProfile: false
+          };
+        }
+        // Ensure personalizedRecommendations exists
+        if (!profile.personalizedRecommendations) {
+          profile.personalizedRecommendations = [];
+        }
         return profile;
       }
     } catch (error) {
@@ -111,7 +128,6 @@ class LearnerProfileService {
         profile.favoriteJourneys.push(journey.id);
       }
       
-      // Award journey start achievement
       this.awardAchievement(profile, {
         id: `journey_start_${journey.id}`,
         title: `${journey.title} Explorer`,
@@ -138,22 +154,17 @@ class LearnerProfileService {
         progress.timeSpent += timeSpent;
         progress.lastActivity = new Date();
         
-        // Update overall progress
         const totalMissions = this.getTotalMissionsForJourney(journeyId);
         progress.overallProgress = Math.round((progress.completedMissions.length / totalMissions) * 100);
         
-        // Update profile totals
         profile.totalTimeSpent += timeSpent;
         
-        // Issue NDI credential
         const credential = this.issueNDICredential(profile, journeyId, missionId, timeSpent);
         progress.credentialsEarned.push(credential);
         profile.totalCredentialsEarned += 1;
         
-        // Check for achievements
         this.checkAndAwardAchievements(profile, progress);
         
-        // Move to next mission
         const nextMission = this.getNextMission(journeyId, missionId);
         progress.currentMission = nextMission?.id;
       }
@@ -163,7 +174,60 @@ class LearnerProfileService {
     return profile;
   }
 
-  issueNDICredential(profile: LearnerProfile, journeyId: string, missionId: string, timeSpent: number): NDICredential {
+  completeMissionWithTracking(
+    profile: LearnerProfile,
+    completion: {
+      missionId: string;
+      journeyId: string;
+      completedAt: Date;
+      timeSpent: number;
+      videoWatched: boolean;
+      questionsAsked: number;
+      conceptsLearned: string[];
+    }
+  ): { updatedProfile: LearnerProfile; newCredentials: NDICredential[] } {
+    const progressIndex = profile.progress.findIndex(p => p.journeyId === completion.journeyId);
+    const newCredentials: NDICredential[] = [];
+
+    if (progressIndex !== -1) {
+      const progress = profile.progress[progressIndex];
+
+      if (!progress.completedMissions.includes(completion.missionId)) {
+        progress.completedMissions.push(completion.missionId);
+        progress.timeSpent += completion.timeSpent;
+        progress.lastActivity = completion.completedAt;
+        progress.conceptsLearned = [...(progress.conceptsLearned || []), ...completion.conceptsLearned];
+        
+        const totalMissions = this.getTotalMissionsForJourney(completion.journeyId);
+        progress.overallProgress = Math.round((progress.completedMissions.length / totalMissions) * 100);
+
+        profile.totalTimeSpent += completion.timeSpent;
+
+        const credential = this.issueNDICredential(
+          profile,
+          completion.journeyId,
+          completion.missionId,
+          completion.timeSpent,
+          completion.videoWatched,
+          completion.questionsAsked,
+          completion.conceptsLearned
+        );
+        progress.credentialsEarned.push(credential);
+        profile.totalCredentialsEarned += 1;
+        newCredentials.push(credential);
+
+        this.checkAndAwardAchievements(profile, progress);
+
+        const nextMission = this.getNextMission(completion.journeyId, completion.missionId);
+        progress.currentMission = nextMission?.id;
+      }
+    }
+
+    this.saveLearnerProfile(profile);
+    return { updatedProfile: profile, newCredentials };
+  }
+
+  issueNDICredential(profile: LearnerProfile, journeyId: string, missionId: string, timeInvested: number, videoWatched: boolean = false, questionsAsked: number = 0, conceptsLearned: string[] = []): NDICredential {
     const credential: NDICredential = {
       id: `cred_${Date.now()}_${missionId}`,
       title: `Mission Completion - ${this.getMissionTitle(journeyId, missionId)}`,
@@ -172,15 +236,18 @@ class LearnerProfileService {
       missionId,
       issueDate: new Date(),
       credentialType: 'mission_completion',
+      level: parseInt(missionId.replace(/\D/g, '')),
       metadata: {
         skillsLearned: this.getMissionSkills(journeyId, missionId),
         difficulty: this.getJourneyDifficulty(journeyId),
-        timeInvested: timeSpent
+        timeInvested: timeInvested,
+        videoWatched: videoWatched,
+        questionsAsked: questionsAsked,
+        completionRate: 100
       },
       ndiTransactionHash: this.simulateNDITransaction()
     };
 
-    // In a real implementation, this would send the credential to the NDI wallet
     this.sendCredentialToNDIWallet(credential, profile.ndiUser);
     
     return credential;
@@ -196,7 +263,6 @@ class LearnerProfileService {
 
     profile.conversationHistory.push(entry);
     
-    // Keep only last 100 conversations to manage storage
     if (profile.conversationHistory.length > 100) {
       profile.conversationHistory = profile.conversationHistory.slice(-100);
     }
@@ -213,7 +279,6 @@ class LearnerProfileService {
   }
 
   checkAndAwardAchievements(profile: LearnerProfile, progress: LearnerProgress): void {
-    // First mission achievement
     if (progress.completedMissions.length === 1) {
       this.awardAchievement(profile, {
         id: 'first_mission',
@@ -226,7 +291,6 @@ class LearnerProfileService {
       });
     }
 
-    // Journey completion achievement
     const totalMissions = this.getTotalMissionsForJourney(progress.journeyId);
     if (progress.completedMissions.length === totalMissions) {
       this.awardAchievement(profile, {
@@ -240,7 +304,6 @@ class LearnerProfileService {
       });
     }
 
-    // Streak achievements
     if (profile.streakDays === 7) {
       this.awardAchievement(profile, {
         id: 'week_streak',
@@ -253,7 +316,6 @@ class LearnerProfileService {
       });
     }
 
-    // Time-based achievements
     if (profile.totalTimeSpent >= 600) { // 10 hours
       this.awardAchievement(profile, {
         id: 'time_investor',
@@ -267,31 +329,66 @@ class LearnerProfileService {
     }
   }
 
-  // Helper methods
+  trackVideoWatching(profile: LearnerProfile, journeyId: string, videoId: string, watchedDuration: number, totalDuration: number): LearnerProfile {
+    const progressIndex = profile.progress.findIndex(p => p.journeyId === journeyId);
+
+    if (progressIndex !== -1) {
+      const progress = profile.progress[progressIndex];
+      if (!progress.videoProgress) {
+        progress.videoProgress = {};
+      }
+
+      progress.videoProgress[videoId] = {
+        watchedDuration: watchedDuration,
+        totalDuration: totalDuration,
+        completionPercentage: (watchedDuration / totalDuration) * 100,
+        lastWatched: new Date()
+      };
+      this.saveLearnerProfile(profile);
+    }
+    return profile;
+  }
+
+  trackQuestionAsked(profile: LearnerProfile, journeyId: string, question: string, context: string): LearnerProfile {
+    const progressIndex = profile.progress.findIndex(p => p.journeyId === journeyId);
+
+    if (progressIndex !== -1) {
+      const progress = profile.progress[progressIndex];
+      if (!progress.questionsAsked) {
+        progress.questionsAsked = [];
+      }
+      progress.questionsAsked.push({ question, context, timestamp: new Date() });
+      this.saveLearnerProfile(profile);
+    }
+    return profile;
+  }
+
   private getTotalMissionsForJourney(journeyId: string): number {
-    // This would typically fetch from journey data
-    return 4; // Default assumption
+    return 4; 
   }
 
   private getNextMission(journeyId: string, currentMissionId: string): Mission | null {
-    // This would typically fetch from journey data
+    const currentMissionNumber = parseInt(currentMissionId.replace('mission-', ''));
+    if (currentMissionNumber < this.getTotalMissionsForJourney(journeyId)) {
+      return { id: `mission-${currentMissionNumber + 1}` } as Mission;
+    }
     return null;
   }
 
   private getMissionTitle(journeyId: string, missionId: string): string {
-    return "Mission Title"; // Placeholder
+    return `Mission ${missionId.split('-')[1]}`;
   }
 
   private getJourneyTitle(journeyId: string): string {
-    return "Journey Title"; // Placeholder
+    return `Journey ${journeyId.replace('-', ' ').split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`;
   }
 
   private getMissionSkills(journeyId: string, missionId: string): string[] {
-    return ["Web3 Basics", "Blockchain Understanding"]; // Placeholder
+    return ["Web3 Basics", "Blockchain Understanding"];
   }
 
   private getJourneyDifficulty(journeyId: string): string {
-    return "Beginner"; // Placeholder
+    return "Beginner";
   }
 
   private simulateNDITransaction(): string {
@@ -299,14 +396,7 @@ class LearnerProfileService {
   }
 
   private async sendCredentialToNDIWallet(credential: NDICredential, user: NDIUser): Promise<void> {
-    // In a real implementation, this would:
-    // 1. Create a verifiable credential
-    // 2. Send it to the user's NDI wallet
-    // 3. Record the transaction on blockchain
-    
     console.log(`NDI Credential issued to ${user.fullName}:`, credential);
-    
-    // Simulate API call to NDI system
     try {
       console.log('Credential successfully sent to NDI wallet');
     } catch (error) {
@@ -326,6 +416,40 @@ class LearnerProfileService {
       totalAchievements: profile.achievements.length
     };
   }
+
+  generateProgressReport(profile: LearnerProfile) {
+    const recommendations: string[] = [];
+    if (profile.progress.length === 0) {
+      recommendations.push("Start your first learning journey to explore Web3 fundamentals.");
+    } else {
+      const incompleteJourneys = profile.progress.filter(p => p.overallProgress < 100);
+      if (incompleteJourneys.length > 0) {
+        incompleteJourneys.forEach(j => {
+          recommendations.push(`Continue your "${j.journeyTitle}" journey. You are ${j.overallProgress}% complete.`);
+        });
+      } else {
+        recommendations.push("You've completed all started journeys! Explore a new Web3 journey from the main page.");
+      }
+    }
+    
+    if (profile.streakDays === 0) {
+      recommendations.push("Try to build a learning streak by logging in daily!");
+    } else if (profile.streakDays < 7) {
+      recommendations.push(`Keep up your ${profile.streakDays}-day streak! Aim for 7 days to earn a "Dedicated Learner" badge.`);
+    }
+
+    if (profile.totalTimeSpent < 3600) { // Less than 1 hour
+      recommendations.push("Spend more time interacting with lessons and asking questions to deepen your understanding.");
+    }
+
+    if (profile.personalizedRecommendations.length > 0) {
+      profile.personalizedRecommendations.forEach(rec => recommendations.push(rec));
+    }
+
+    return { recommendations };
+  }
 }
 
-export const learnerProfileService = new LearnerProfileService();
+// Export both the class and the instance with a distinct name
+export { EnhancedLearnerProfileService };
+export const enhancedLearnerProfileServiceInstance = new EnhancedLearnerProfileService();

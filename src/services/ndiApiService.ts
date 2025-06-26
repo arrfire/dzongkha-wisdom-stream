@@ -8,11 +8,19 @@ import {
 
 class NDIApiService {
   private baseUrl: string;
+  private ndiWebhookUrl: string;
+  private ndiToken: string;
+  private webhookId: string;
   
   constructor() {
     this.baseUrl = import.meta.env.VITE_NDI_BACKEND_URL || '/api';
+    this.ndiWebhookUrl = import.meta.env.VITE_WEBHOOK_BASE_URL || 'https://demo-client.bhutanndi.com/webhook/v1';
+    this.ndiToken = 'eyJraWQiOiJzd3hhdGVQK1lmR2liT2ZiTmNjWGpjYkptWnVqNGlrXC80SWh5TW9JdFhLTT0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIzdHE3aG8yM2c1cmlzbmRkOTBhNzZqcmU1ZiIsInRva2VuX3VzZSI6ImFjY2VzcyIsInNjb3BlIjoibmRpLXNlcnZpY2VcL3JlYWQud3JpdGUiLCJhdXRoX3RpbWUiOjE3NTA5MzgzMjQsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC5hcC1zb3V0aGVhc3QtMS5hbWF6b25hd3MuY29tXC9hcC1zb3V0aGVhc3QtMV9wdFRmQ2VNYnkiLCJleHAiOjE3NTEwMjQ3MjQsImlhdCI6MTc1MDkzODMyNCwidmVyc2lvbiI6MiwianRpIjoiM2ExOTYzOGQtZWVmZi00NzA3LTkxOGEtMjAyMDc1NGYwYTc2IiwiY2xpZW50X2lkIjoiM3RxN2hvMjNnNXJpc25kZDkwYTc2anJlNWYifQ.LwHWW5e8CfkRCQ34WIIgMSOeK_oBxIlJ_WKEd3tJZ-Ami3OUtXiDaQtd6O8MnlsZWjRRAO-fXfIXdTt099hsJzrNK2LEER5Vxb5KQRNFstoiga49jMw-8cyVW96KNFMm20rg53htSnDOV3wnXGzMqF9eVnH230QtW6tXo7XGERMONyi_mk4F5f1Vi9uNw79p2QJsw46w-h7-lwGqHyffdXGq1UI3UDT2auDNHTW3tlCq-jxqucvQunB6B3Atbx2PQrEOuewYUimYz_e42o-JKjUkho3BOru0joEO0UTn2Ov7EiMHdzy1OW7O2vn3HNOL6J3xYwWBvMhU6G9k_1d5ww';
+    this.webhookId = import.meta.env.VITE_WEBHOOK_ID || 'edustream30';
     console.log('NDI Backend URL:', this.baseUrl);
-  }
+    console.log('NDI Webhook URL:', this.ndiWebhookUrl);
+    console.log('Webhook ID:', this.webhookId);
+  } 
 
   async createFoundationalIdProofRequest(): Promise<ProofRequestResult> {
     const fullUrl = `${this.baseUrl}/api/Auth/ndi/request`;
@@ -67,6 +75,17 @@ class NDIApiService {
       console.log('- Proof Request URL:', proofRequestURL);
       console.log('- Deep Link URL:', deepLinkURL);
       
+      // STEP 3: Subscribe to webhook using the threadId - THIS IS THE MISSING PIECE
+      console.log('🔗 Subscribing to webhook for thread:', proofRequestThreadId);
+      try {
+        await this.subscribeToNDIWebhook(proofRequestThreadId);
+        console.log('✅ Successfully subscribed to NDI webhook');
+      } catch (subscriptionError) {
+        console.error('❌ Failed to subscribe to webhook:', subscriptionError);
+        // Don't throw here - let the auth continue, but log the error
+        console.warn('Continuing with authentication despite webhook subscription failure');
+      }
+      
       return {
         proofRequestThreadId,
         proofRequestURL,
@@ -80,6 +99,53 @@ class NDIApiService {
         throw new Error(`Network error: Unable to connect to ${fullUrl}. Check if the backend is running and accessible.`);
       }
       
+      throw error;
+    }
+  }
+
+  /**
+   * NEW METHOD: Subscribe to NDI webhook for the given thread
+   * This performs Step 3 of the authentication process
+   */
+  async subscribeToNDIWebhook(threadId: string): Promise<any> {
+    const subscribeUrl = `${this.ndiWebhookUrl}/subscribe`;
+    console.log('Subscribing to NDI webhook at:', subscribeUrl);
+    console.log('With webhook ID:', this.webhookId);
+    console.log('With thread ID:', threadId);
+    
+    try {
+      const response = await fetch(subscribeUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': '*/*',
+          'Authorization': `Bearer ${this.ndiToken}` // Add authorization header
+        },
+        body: JSON.stringify({
+          webhookId: this.webhookId,
+          threadId: threadId
+        })
+      });
+      
+      console.log('Webhook subscription response status:', response.status);
+      
+      if (response.status === 202) {
+        console.log('✅ Webhook subscription accepted (202)');
+        return { status: 'accepted' };
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Webhook subscription error response:', errorText);
+        throw new Error(`Failed to subscribe to NDI webhook: ${response.status} - ${errorText}`);
+      }
+      
+      const responseData = await response.text();
+      console.log('Webhook subscription response:', responseData);
+      
+      return responseData;
+    } catch (error) {
+      console.error('Error subscribing to NDI webhook:', error);
       throw error;
     }
   }
@@ -194,27 +260,10 @@ class NDIApiService {
     }
   }
 
+  // DEPRECATED: Use subscribeToNDIWebhook instead
   async subscribeThread(request: ProofSubscriptionRequest): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/ndi/subscribe`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(request)
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to subscribe to thread: ${response.status} - ${errorText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error subscribing to thread:', error);
-      throw error;
-    }
+    console.warn('subscribeThread is deprecated, use subscribeToNDIWebhook instead');
+    return this.subscribeToNDIWebhook(request.threadId);
   }
 
   parseProofPresentation(payload: any): FoundationalId {
@@ -283,14 +332,12 @@ class NDIApiService {
   // Utility method to setup webhook notifications (called from frontend if needed)
   async setupWebhookForThread(threadId: string): Promise<void> {
     try {
-      // This would typically be handled by your backend automatically
-      // but you can call this from frontend if needed
+      // This now calls the actual NDI webhook subscription
       console.log('Setting up webhook for thread:', threadId);
-      
-      // The backend should handle webhook registration and subscription
-      // This is just a placeholder if you need frontend control
+      await this.subscribeToNDIWebhook(threadId);
     } catch (error) {
       console.error('Error setting up webhook for thread:', error);
+      throw error;
     }
   }
 }
