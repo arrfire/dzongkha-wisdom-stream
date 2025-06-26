@@ -101,6 +101,10 @@ const Index = () => {
       verificationStatus: "guest",
       permissions: ['view_profile', 'access_courses']
     };
+    
+    // Save guest user to localStorage for persistence across pages
+    localStorage.setItem('guestUser', JSON.stringify(guest));
+    
     setGuestUser(guest);
     setGuestMode(true);
     setShowNDILogin(false);
@@ -308,6 +312,22 @@ const Index = () => {
                 )}
               </AlertDescription>
             </Alert>
+            
+            {/* Navigation buttons */}
+            <div className="flex space-x-4 mt-4">
+              <Button 
+                onClick={() => window.location.href = '/profile'}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                View Profile
+              </Button>
+              <Button 
+                onClick={() => window.location.href = '/rewards'}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Explore Rewards
+              </Button>
+            </div>
           </div>
         )}
 
