@@ -1,11 +1,9 @@
-// ===== 3. Create src/components/NDILogin.tsx =====
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { QrCode, CheckCircle, Clock, User, Shield, Mountain } from "lucide-react";
+import { QrCode, CheckCircle, Clock, User, Shield, Mountain, RefreshCw, ExternalLink } from "lucide-react";
 import { useNDIAuth } from "@/hooks/useNDIAuth";
 
 interface NDILoginProps {
@@ -14,7 +12,17 @@ interface NDILoginProps {
 }
 
 export const NDILogin: React.FC<NDILoginProps> = ({ onSuccess, onCancel }) => {
-  const { isAuthenticated, isLoading, qrCode, user, error, generateCredentialRequest, logout } = useNDIAuth();
+  const { 
+    isAuthenticated, 
+    isLoading, 
+    qrCode, 
+    deepLinkURL,
+    user, 
+    error, 
+    generateCredentialRequest, 
+    logout,
+    retryAuthentication
+  } = useNDIAuth();
 
   React.useEffect(() => {
     if (isAuthenticated && user && onSuccess) {
@@ -37,17 +45,21 @@ export const NDILogin: React.FC<NDILoginProps> = ({ onSuccess, onCancel }) => {
               <User className="h-4 w-4 text-gray-500" />
               <span className="text-sm font-medium">{user.fullName}</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Shield className="h-4 w-4 text-gray-500" />
-              <span className="text-sm">{user.institution}</span>
-            </div>
+            {user.institution && (
+              <div className="flex items-center space-x-2">
+                <Shield className="h-4 w-4 text-gray-500" />
+                <span className="text-sm">{user.institution}</span>
+              </div>
+            )}
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
                 {user.verificationStatus}
               </Badge>
-              <Badge variant="outline">
-                {user.academicLevel}
-              </Badge>
+              {user.academicLevel && (
+                <Badge variant="outline">
+                  {user.academicLevel}
+                </Badge>
+              )}
             </div>
           </div>
           
@@ -125,7 +137,7 @@ export const NDILogin: React.FC<NDILoginProps> = ({ onSuccess, onCancel }) => {
               <img 
                 src={qrCode} 
                 alt="NDI Authentication QR Code" 
-                className="mx-auto border-2 border-gray-200 rounded-lg"
+                className="mx-auto border-2 border-gray-200 rounded-lg max-w-full h-auto"
               />
               <div className="space-y-2">
                 <p className="text-sm font-medium">Scan with your NDI Wallet</p>
@@ -135,9 +147,44 @@ export const NDILogin: React.FC<NDILoginProps> = ({ onSuccess, onCancel }) => {
               </div>
             </div>
             
+            {deepLinkURL && (
+              <div className="text-center">
+                <Button
+                  onClick={() => window.open(deepLinkURL, '_blank')}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Open in NDI Wallet
+                </Button>
+              </div>
+            )}
+            
             <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
               <Clock className="h-4 w-4" />
               <span>Waiting for authentication...</span>
+            </div>
+            
+            <div className="flex space-x-2">
+              <Button
+                onClick={retryAuthentication}
+                variant="outline"
+                className="flex-1"
+                disabled={isLoading}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+              {onCancel && (
+                <Button
+                  onClick={onCancel}
+                  variant="ghost"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              )}
             </div>
             
             <Alert>
