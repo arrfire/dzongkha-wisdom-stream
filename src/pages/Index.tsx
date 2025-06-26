@@ -13,6 +13,7 @@ import { Achievement } from "@/types/achievement";
 import { useNDIAuth } from "@/hooks/useNDIAuth";
 import { learnerProfileService } from "@/services/learnerProfileService";
 import { LearnerProfile } from "@/types/learnerProfile";
+import { NDILogin } from "@/components/NDILogin";
 
 const Index = () => {
   const { isAuthenticated, user } = useNDIAuth();
@@ -20,6 +21,7 @@ const Index = () => {
   const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
   const [journeys, setJourneys] = useState(journeyData);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showNDILogin, setShowNDILogin] = useState(false);
 
   const stats = [
     { label: "Active Learners", value: "12,547", icon: Users, color: "text-blue-600" },
@@ -82,6 +84,11 @@ const Index = () => {
     // Handle credential earning - could show notification, update UI, etc.
   };
 
+  const handleLoginSuccess = (userData: any) => {
+    setShowNDILogin(false);
+    console.log('User authenticated:', userData);
+  };
+
   const getAchievements = () => {
     if (!learnerProfile) return [];
     
@@ -94,6 +101,18 @@ const Index = () => {
       total: undefined
     }));
   };
+
+  // Show NDI login modal when user clicks sign in
+  if (showNDILogin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center p-4">
+        <NDILogin 
+          onSuccess={handleLoginSuccess}
+          onCancel={() => setShowNDILogin(false)}
+        />
+      </div>
+    );
+  }
 
   // Show welcome page for non-authenticated users
   if (!isAuthenticated || !user || !learnerProfile) {
@@ -138,6 +157,24 @@ const Index = () => {
                 Your progress will be securely tracked and verified on the blockchain.
               </AlertDescription>
             </Alert>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Button 
+                size="lg" 
+                className="bg-orange-600 hover:bg-orange-700 text-lg px-8 py-4"
+                onClick={() => setShowNDILogin(true)}
+              >
+                Start Learning with NDI
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="text-lg px-8 py-4 border-orange-200 hover:bg-orange-50"
+                onClick={() => setShowNDILogin(true)}
+              >
+                Explore Journeys
+              </Button>
+            </div>
 
             <div className="text-center">
               <a 

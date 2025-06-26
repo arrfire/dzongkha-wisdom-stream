@@ -93,23 +93,9 @@ export const useNDIAuth = () => {
   }, [pollingInterval]);
 
   const setupWebhook = async (threadId: string) => {
-    try {
-      // Register webhook for real-time updates (optional)
-      const webhookUrl = `${window.location.origin}/api/ndi/webhook`;
-      
-      await ndiApiService.registerWebhook({
-        webhookUrl,
-        authentication: 'bearer_token_or_signature' // Configure based on your backend
-      });
-      
-      // Subscribe to specific thread
-      await ndiApiService.subscribeThread({ threadId });
-      
-      console.log('Webhook setup completed for thread:', threadId);
-    } catch (error) {
-      console.error('Failed to setup webhook:', error);
-      // Don't fail the whole flow if webhook setup fails
-    }
+    // Skip webhook setup for now - we'll rely on polling instead
+    console.log('Skipping webhook setup, using polling for thread:', threadId);
+    return Promise.resolve();
   };
 
   const generateCredentialRequest = async (requiredCredentials: string[] = ['foundational_id']) => {
@@ -134,8 +120,8 @@ export const useNDIAuth = () => {
         isLoading: false
       }));
       
-      // Setup webhook (optional, for real-time updates)
-      await setupWebhook(result.proofRequestThreadId);
+      // Setup webhook (optional, for real-time updates) - skipped for now
+      // await setupWebhook(result.proofRequestThreadId);
       
       // Start polling for proof completion
       startProofPolling(result.proofRequestThreadId);
