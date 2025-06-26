@@ -25,7 +25,10 @@ const Profile = () => {
 
   useEffect(() => {
     const currentUser = user || guestUser;
-    if (!currentUser && !isAuthenticated) {
+    
+    // Only redirect if no user at all (neither authenticated nor guest)
+    if (!currentUser && !isAuthenticated && !guestUser) {
+      console.log('No user found, redirecting to homepage');
       navigate('/');
       return;
     }
@@ -43,7 +46,7 @@ const Profile = () => {
 
   const currentUser = user || guestUser;
   
-  if (!currentUser || !learnerProfile) {
+  if (!currentUser && !learnerProfile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 flex items-center justify-center">
         <div className="text-center">
@@ -55,13 +58,13 @@ const Profile = () => {
   }
 
   const selectedJourney = journeyData.find(j => 
-    learnerProfile.progress.some(p => p.journeyId === j.id)
+    learnerProfile?.progress.some(p => p.journeyId === j.id)
   );
 
   return (
     <ProfilePage 
-      user={currentUser}
-      learnerProfile={learnerProfile}
+      user={currentUser!}
+      learnerProfile={learnerProfile!}
       selectedJourney={selectedJourney}
     />
   );
