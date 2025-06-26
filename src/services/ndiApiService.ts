@@ -134,7 +134,7 @@ class NDIApiService {
     }
 
     // Fallback to direct API check
-    const fallbackUrl = `${this.baseUrl}/api/Auth/ndi/proof-check/${threadId}`;
+    const fallbackUrl = `${this.baseUrl}/api/Auth/ndi/check/${threadId}`;
     console.log('Checking proof at fallback URL:', fallbackUrl);
     
     try {
