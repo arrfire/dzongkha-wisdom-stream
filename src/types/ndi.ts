@@ -1,45 +1,27 @@
+
+// src/types/ndi.ts - Bhutan NDI integration types
 export interface NDIUser {
-  citizenId?: string;
+  citizenId: string;
   fullName: string;
+  dateOfBirth?: Date;
   email?: string;
-  studentId?: string;
+  phoneNumber?: string;
+  address?: string;
   institution?: string;
-  academicLevel?: string;
-  verificationStatus?: 'verified' | 'pending' | 'failed';
+  verificationStatus: 'verified' | 'pending' | 'failed' | 'guest';
   permissions: string[];
+  lastLogin?: Date;
 }
 
-export interface NDIAuthState {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  qrCode: string | null;
-  threadId?: string;
-  deepLinkURL?: string;
-  user: NDIUser | null;
-  error: string | null;
-}
-
-export interface ProofRequestResult {
-  proofRequestThreadId: string;
-  proofRequestURL: string;
-  deepLinkURL: string;
-}
-
-export interface ProofCheckResult {
+export interface NDIAuthResponse {
   success: boolean;
-  presentation?: any;
+  user?: NDIUser;
+  error?: string;
+  sessionToken?: string;
 }
 
-export interface FoundationalId {
-  idNumber: string;
-  fullName: string;
-}
-
-export interface WebhookRegistrationRequest {
-  webhookUrl: string;
-  authentication: string;
-}
-
-export interface ProofSubscriptionRequest {
-  threadId: string;
+export interface NDIVerificationRequest {
+  citizenId: string;
+  biometricData?: string;
+  documentHash?: string;
 }

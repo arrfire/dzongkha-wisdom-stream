@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Gift, ShoppingBag, Plane, Utensils, Laptop, Shield, 
-  CheckCircle, ExternalLink, MapPin, Clock, Percent
+  CheckCircle, ExternalLink, MapPin, Clock, Percent, BookOpen
 } from "lucide-react";
 import { NDIUser } from "@/types/ndi";
 import { LearnerProfile } from "@/types/learnerProfile";
