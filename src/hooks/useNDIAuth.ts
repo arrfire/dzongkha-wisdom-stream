@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import type { NDIUser, NDIAuthState } from '@/types/ndi';
 import { ndiApiService } from '@/services/ndiApiService';
 
@@ -23,6 +24,8 @@ export const useNDIAuth = () => {
   }, [pollingInterval]);
 
   const startProofPolling = useCallback((threadId: string) => {
+    console.log('Starting proof polling for thread:', threadId);
+    
     // Clear any existing polling
     if (pollingInterval) {
       clearInterval(pollingInterval);
@@ -30,9 +33,12 @@ export const useNDIAuth = () => {
 
     const interval = setInterval(async () => {
       try {
+        console.log('Polling proof status for thread:', threadId);
         const result = await ndiApiService.checkProof(threadId);
         
         if (result.success && result.presentation) {
+          console.log('Proof verification successful!');
+          
           // Parse the presentation to extract user data
           const foundationalId = ndiApiService.parseProofPresentation(result.presentation);
           
@@ -42,6 +48,8 @@ export const useNDIAuth = () => {
             verificationStatus: 'verified',
             permissions: ['view_profile', 'access_courses', 'receive_certificates']
           };
+          
+          console.log('NDI User authenticated:', ndiUser);
           
           setAuthState(prev => ({
             ...prev,
@@ -75,6 +83,7 @@ export const useNDIAuth = () => {
     
     // Clear polling after 5 minutes timeout
     setTimeout(() => {
+      console.log('Polling timeout reached for thread:', threadId);
       clearInterval(interval);
       setPollingInterval(null);
       
@@ -99,6 +108,8 @@ export const useNDIAuth = () => {
   };
 
   const generateCredentialRequest = async (requiredCredentials: string[] = ['foundational_id']) => {
+    console.log('Generating credential request...');
+    
     setAuthState(prev => ({ 
       ...prev, 
       isLoading: true, 
@@ -109,16 +120,42 @@ export const useNDIAuth = () => {
     }));
     
     try {
+      console.log('Calling backend API...');
+      
       // Call actual backend API
       const result = await ndiApiService.createFoundationalIdProofRequest();
       
+      console.log('Backend response received:', result);
+      
+      // Generate QR code from the proofRequestURL
+      let generatedQRCode: string;
+      try {
+        generatedQRCode = await QRCode.toDataURL(result.proofRequestURL, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+        console.log('QR code generated successfully');
+      } catch (qrError) {
+        console.error('Error generating QR code:', qrError);
+        throw new Error('Failed to generate QR code from proof request URL');
+      }
+      
+      // Use the generated QR code image
+      const qrCodeToUse = generatedQRCode;
+      
       setAuthState(prev => ({
         ...prev,
-        qrCode: result.proofRequestURL,
+        qrCode: qrCodeToUse,
         threadId: result.proofRequestThreadId,
         deepLinkURL: result.deepLinkURL,
         isLoading: false
       }));
+      
+      console.log('State updated with QR code and thread ID');
       
       // Setup webhook (optional, for real-time updates) - skipped for now
       // await setupWebhook(result.proofRequestThreadId);
@@ -128,15 +165,33 @@ export const useNDIAuth = () => {
       
     } catch (error) {
       console.error('Error generating credential request:', error);
+      
+      let errorMessage = "Failed to generate authentication request";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // Add more specific error messages
+      if (errorMessage.includes('Network error')) {
+        errorMessage += "\n\nPlease check:\n1. Your internet connection\n2. Backend server is running\n3. Backend URL is correct";
+      } else if (errorMessage.includes('CORS')) {
+        errorMessage += "\n\nCORS issue: Contact your backend developer to allow requests from this domain.";
+      } else if (errorMessage.includes('Available fields')) {
+        errorMessage += "\n\nThe backend response format doesn't match what the frontend expects. Check the API documentation.";
+      }
+      
       setAuthState(prev => ({
         ...prev,
-        error: error instanceof Error ? error.message : "Failed to generate authentication request",
+        error: errorMessage,
         isLoading: false
       }));
     }
   };
 
   const logout = () => {
+    console.log('Logging out NDI user');
+    
     // Clear any ongoing polling
     if (pollingInterval) {
       clearInterval(pollingInterval);
@@ -157,6 +212,7 @@ export const useNDIAuth = () => {
   };
 
   const retryAuthentication = () => {
+    console.log('Retrying NDI authentication');
     generateCredentialRequest();
   };
 
@@ -168,6 +224,7 @@ export const useNDIAuth = () => {
         const authData = JSON.parse(stored);
         // Check if session is still valid (24 hours)
         if (Date.now() - authData.timestamp < 24 * 60 * 60 * 1000) {
+          console.log('Restoring NDI session from storage');
           setAuthState(prev => ({
             ...prev,
             isAuthenticated: true,
@@ -175,6 +232,7 @@ export const useNDIAuth = () => {
           }));
         } else {
           // Session expired
+          console.log('NDI session expired, removing from storage');
           sessionStorage.removeItem('ndi_auth');
         }
       } catch (error) {
