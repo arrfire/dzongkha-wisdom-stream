@@ -39,47 +39,28 @@ class NDIApiService {
       const data = await response.json();
       console.log('Raw backend response:', JSON.stringify(data, null, 2));
       
-      // Handle different possible response formats
+      // Handle the actual response format from your backend
       let proofRequestThreadId: string;
       let proofRequestURL: string;
       let deepLinkURL: string;
       
-      // Try different possible field names for threadId
-      if (data.proofRequestThreadId) {
-        proofRequestThreadId = data.proofRequestThreadId;
-      } else if (data.threadId) {
+      // Your backend returns these exact field names
+      if (data.threadId) {
         proofRequestThreadId = data.threadId;
-      } else if (data.id) {
-        proofRequestThreadId = data.id;
-      } else if (data.requestId) {
-        proofRequestThreadId = data.requestId;
-      } else if (data.proof_request_thread_id) {
-        proofRequestThreadId = data.proof_request_thread_id;
       } else {
         console.error('Available fields in response:', Object.keys(data));
-        throw new Error(`Missing proof request thread ID in backend response. Available fields: ${Object.keys(data).join(', ')}`);
+        throw new Error(`Missing thread ID in backend response. Available fields: ${Object.keys(data).join(', ')}`);
       }
       
-      // Try different possible field names for URL
-      if (data.proofRequestURL) {
-        proofRequestURL = data.proofRequestURL;
-      } else if (data.proofRequestUrl) {
+      if (data.proofRequestUrl) {
         proofRequestURL = data.proofRequestUrl;
-      } else if (data.url) {
-        proofRequestURL = data.url;
-      } else if (data.requestUrl) {
-        proofRequestURL = data.requestUrl;
-      } else if (data.qrCodeUrl) {
-        proofRequestURL = data.qrCodeUrl;
-      } else if (data.proof_request_url) {
-        proofRequestURL = data.proof_request_url;
       } else {
         console.error('Available fields in response:', Object.keys(data));
         throw new Error(`Missing proof request URL in backend response. Available fields: ${Object.keys(data).join(', ')}`);
       }
       
-      // Deep link URL is optional
-      deepLinkURL = data.deepLinkURL || data.deepLinkUrl || data.deepLink || data.deep_link_url || proofRequestURL;
+      // Deep link URL
+      deepLinkURL = data.deepLinkUrl || proofRequestURL;
       
       console.log('Extracted values:');
       console.log('- Thread ID:', proofRequestThreadId);
@@ -99,21 +80,16 @@ class NDIApiService {
         throw new Error(`Network error: Unable to connect to ${fullUrl}. Check if the backend is running and accessible.`);
       }
       
-      // Check if it's a CORS error
-      if (error instanceof TypeError && error.message.includes('CORS')) {
-        throw new Error(`CORS error: Backend at ${fullUrl} is not allowing requests from this domain.`);
-      }
-      
       throw error;
     }
   }
 
-  async checkProof(threadId: string): Promise<ProofCheckResult> {
-    // First try the webhook endpoint (faster)
+  async checkProofViaWebhook(threadId: string): Promise<ProofCheckResult> {
+    // Check webhook endpoint first (this should be instant if webhook received the notification)
+    const webhookUrl = `${this.baseUrl}/api/webhook/proof-status/${threadId}`;
+    console.log('Checking webhook proof status at:', webhookUrl);
+    
     try {
-      const webhookUrl = `${this.baseUrl}/api/webhook/proof-status/${threadId}`;
-      console.log('Checking webhook proof status at:', webhookUrl);
-      
       const webhookResponse = await fetch(webhookUrl, {
         method: 'GET',
         headers: { 
@@ -124,21 +100,32 @@ class NDIApiService {
       if (webhookResponse.ok) {
         const webhookData = await webhookResponse.json();
         console.log('Webhook proof check response:', webhookData);
-        return {
-          success: webhookData.success || false,
-          presentation: webhookData.presentation || null
-        };
+        
+        if (webhookData.success) {
+          console.log('✅ Proof found via webhook!');
+          return {
+            success: true,
+            presentation: webhookData.presentation
+          };
+        }
+      } else if (webhookResponse.status === 404) {
+        console.log('Webhook: Proof not ready yet (404)');
+        return { success: false, presentation: null };
       }
     } catch (webhookError) {
-      console.log('Webhook check failed, falling back to direct API:', webhookError);
+      console.error('Webhook check failed:', webhookError);
     }
+    
+    return { success: false, presentation: null };
+  }
 
-    // Fallback to direct API check
-    const fallbackUrl = `${this.baseUrl}/api/Auth/ndi/check/${threadId}`;
-    console.log('Checking proof at fallback URL:', fallbackUrl);
+  async checkProofDirectAPI(threadId: string): Promise<ProofCheckResult> {
+    // Direct API check as fallback (only use this if webhook is not working)
+    const directUrl = `${this.baseUrl}/api/Auth/ndi/proof-check/${threadId}`;
+    console.log('Checking proof via direct API at:', directUrl);
     
     try {
-      const response = await fetch(fallbackUrl, {
+      const response = await fetch(directUrl, {
         method: 'GET',
         headers: { 
           'Accept': 'application/json'
@@ -147,26 +134,41 @@ class NDIApiService {
       
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('Proof not ready yet (404)');
+          console.log('Direct API: Proof not ready yet (404)');
           return { success: false, presentation: null };
         }
-        console.error('Proof check failed:', response.status);
+        console.error('Direct API proof check failed:', response.status);
         const errorText = await response.text();
-        console.error('Proof check error response:', errorText);
-        throw new Error(`Failed to check proof: ${response.status} - ${errorText}`);
+        console.error('Direct API error response:', errorText);
+        return { success: false, presentation: null };
       }
       
       const data = await response.json();
-      console.log('Fallback proof check response:', data);
+      console.log('Direct API proof check response:', data);
       
       return {
         success: data.success || data.verified || data.completed || false,
         presentation: data.presentation || data.proof || data.data || null
       };
     } catch (error) {
-      console.error('Error checking proof:', error);
+      console.error('Error checking proof via direct API:', error);
       return { success: false, presentation: null };
     }
+  }
+
+  async checkProof(threadId: string): Promise<ProofCheckResult> {
+    // With webhooks, we primarily check the webhook endpoint
+    // The webhook should have already received and stored the proof result
+    const webhookResult = await this.checkProofViaWebhook(threadId);
+    
+    if (webhookResult.success) {
+      return webhookResult;
+    }
+    
+    // Only use direct API as fallback if webhook is not implemented/working
+    // In production with webhooks, this should rarely be needed
+    console.log('Webhook check unsuccessful, trying direct API as fallback...');
+    return await this.checkProofDirectAPI(threadId);
   }
 
   async registerWebhook(request: WebhookRegistrationRequest): Promise<any> {
@@ -275,6 +277,20 @@ class NDIApiService {
     } catch (error) {
       console.error('Error parsing proof presentation:', error);
       throw new Error('Failed to parse proof presentation');
+    }
+  }
+
+  // Utility method to setup webhook notifications (called from frontend if needed)
+  async setupWebhookForThread(threadId: string): Promise<void> {
+    try {
+      // This would typically be handled by your backend automatically
+      // but you can call this from frontend if needed
+      console.log('Setting up webhook for thread:', threadId);
+      
+      // The backend should handle webhook registration and subscription
+      // This is just a placeholder if you need frontend control
+    } catch (error) {
+      console.error('Error setting up webhook for thread:', error);
     }
   }
 }
