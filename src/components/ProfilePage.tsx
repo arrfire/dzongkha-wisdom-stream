@@ -1,4 +1,3 @@
-
 // src/components/ProfilePage.tsx - Comprehensive learner profile with credentials and integrations
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,8 +83,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     return Math.round(totalProgress / learnerProfile.progress.length);
   };
 
+  const handleGoHome = () => {
+    window.location.href = '/';
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Profile Header with Go Home Button */}
+      <div className="flex items-center justify-between mb-6">
+        <Button 
+          onClick={handleGoHome}
+          variant="outline"
+          className="flex items-center space-x-2"
+        >
+          <ExternalLink className="h-4 w-4" />
+          <span>Go Back Home</span>
+        </Button>
+      </div>
+
       {/* Profile Header */}
       <Card className="border-2 border-orange-100 bg-gradient-to-r from-orange-50 to-red-50">
         <CardContent className="p-6">

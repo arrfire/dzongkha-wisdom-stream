@@ -1,5 +1,5 @@
 
-// src/App.tsx - Updated for NDI-first flow
+// src/App.tsx - Updated for NDI-first flow with new routes
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Rewards from "./pages/Rewards";
+import Community from "./pages/Community";
+import Web3Bhutan from "./pages/Web3Bhutan";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +31,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/rewards" element={<Rewards />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/web3bhutan" element={<Web3Bhutan />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="/chatpage" element={<Profile/>} /> 
           <Route path="*" element={<NotFound />} />

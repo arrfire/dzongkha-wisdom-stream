@@ -1,3 +1,4 @@
+
 // src/components/IntegratedLearningExperience.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { NDIUser } from "@/types/ndi";
 import { LearnerProfile, NDICredential } from "@/types/learnerProfile";
 import EnhancedMasterShifuChat from "./EnhancedMasterShifuChat";
 import EnhancedVideoLessonDisplay from "./EnhancedVideoLessonDisplay";
-import { enhancedLearnerProfileService } from "@/services/enhancedLearnerProfileService";
+import { enhancedLearnerProfileServiceInstance } from "@/services/enhancedLearnerProfileService";
 
 interface IntegratedLearningExperienceProps {
   user: NDIUser;
@@ -87,7 +88,7 @@ const IntegratedLearningExperience: React.FC<IntegratedLearningExperienceProps> 
     };
 
     const { updatedProfile, newCredentials: earnedCredentials } = 
-      enhancedLearnerProfileService.completeMissionWithTracking(learnerProfile, completion);
+      enhancedLearnerProfileServiceInstance.completeMissionWithTracking(learnerProfile, completion);
     
     onProfileUpdate(updatedProfile);
     
@@ -311,7 +312,7 @@ const IntegratedLearningExperience: React.FC<IntegratedLearningExperienceProps> 
                       learnerProfile={learnerProfile}
                       onJourneySelect={onJourneySelect}
                       onMissionStart={handleMissionStart}
-                      onMissionComplete={handleMissionComplete}
+                      onMissionComplete={(missionId, timeSpent) => handleMissionComplete(missionId, timeSpent, [])}
                       onCredentialEarned={handleCredentialEarned}
                       onProfileUpdate={onProfileUpdate}
                     />
@@ -430,7 +431,7 @@ const IntegratedLearningExperience: React.FC<IntegratedLearningExperienceProps> 
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            {enhancedLearnerProfileService.generateProgressReport(learnerProfile).recommendations.map((rec, index) => (
+                            {enhancedLearnerProfileServiceInstance.generateProgressReport(learnerProfile).recommendations.map((rec, index) => (
                               <div key={index} className="flex items-start space-x-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
                                 <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0" />
                                 <p className="text-sm text-indigo-800">{rec}</p>

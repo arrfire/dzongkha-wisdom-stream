@@ -12,14 +12,14 @@ import {
 } from "lucide-react";
 import { Journey } from "@/data/journeyData";
 import { LearnerProfile } from "@/types/learnerProfile";
-import { enhancedLearnerProfileService } from "@/services/enhancedLearnerProfileService";
+import { enhancedLearnerProfileServiceInstance } from "@/services/enhancedLearnerProfileService";
 
 interface VideoLessonProps {
   journey: Journey;
   missionId: string;
-  learnerProfile: LearnerProfile;
-  onProgressUpdate: (profile: LearnerProfile) => void;
-  onMissionComplete: (missionId: string, timeSpent: number, concepts: string[]) => void;
+  learnerProfile?: LearnerProfile;
+  onProgressUpdate?: (profile: LearnerProfile) => void;
+  onMissionComplete?: (missionId: string, timeSpent: number, concepts: string[]) => void;
   className?: string;
 }
 
@@ -174,7 +174,7 @@ const EnhancedVideoLessonDisplay: React.FC<VideoLessonProps> = ({
 
   useEffect(() => {
     // Track video watching progress
-    if (isWatching && startTime) {
+    if (isWatching && startTime && learnerProfile && onProgressUpdate) {
       const interval = setInterval(() => {
         watchTimeRef.current += 1;
         const progress = Math.min((watchTimeRef.current / parseDuration(currentVideo?.duration || '0:00')) * 100, 100);
@@ -193,7 +193,7 @@ const EnhancedVideoLessonDisplay: React.FC<VideoLessonProps> = ({
         
         // Track in learner profile
         if (watchTimeRef.current % 30 === 0) { // Every 30 seconds
-          const updatedProfile = enhancedLearnerProfileService.trackVideoWatching(
+          const updatedProfile = enhancedLearnerProfileServiceInstance.trackVideoWatching(
             learnerProfile,
             journey.id,
             currentVideo?.youtubeId || '',
@@ -254,8 +254,8 @@ const EnhancedVideoLessonDisplay: React.FC<VideoLessonProps> = ({
 
   const handleQuestionAsked = () => {
     setQuestionsAsked(prev => prev + 1);
-    if (currentVideo) {
-      const updatedProfile = enhancedLearnerProfileService.trackQuestionAsked(
+    if (currentVideo && learnerProfile && onProgressUpdate) {
+      const updatedProfile = enhancedLearnerProfileServiceInstance.trackQuestionAsked(
         learnerProfile,
         journey.id,
         "Question about video content",
@@ -266,26 +266,28 @@ const EnhancedVideoLessonDisplay: React.FC<VideoLessonProps> = ({
   };
 
   const handleMissionComplete = () => {
-    if (currentVideo && startTime) {
+    if (currentVideo && startTime && onMissionComplete) {
       const timeSpent = Math.floor((Date.now() - startTime.getTime()) / 1000);
       onMissionComplete(missionId, timeSpent, conceptsLearned);
       
-      // Complete mission in enhanced service
-      const completion = {
-        missionId,
-        journeyId: journey.id,
-        completedAt: new Date(),
-        timeSpent,
-        videoWatched: watchProgress > 80,
-        questionsAsked,
-        conceptsLearned
-      };
+      // Complete mission in enhanced service if learner profile available
+      if (learnerProfile && onProgressUpdate) {
+        const completion = {
+          missionId,
+          journeyId: journey.id,
+          completedAt: new Date(),
+          timeSpent,
+          videoWatched: watchProgress > 80,
+          questionsAsked,
+          conceptsLearned
+        };
 
-      const { updatedProfile } = enhancedLearnerProfileService.completeMissionWithTracking(
-        learnerProfile,
-        completion
-      );
-      onProgressUpdate(updatedProfile);
+        const { updatedProfile } = enhancedLearnerProfileServiceInstance.completeMissionWithTracking(
+          learnerProfile,
+          completion
+        );
+        onProgressUpdate(updatedProfile);
+      }
     }
   };
 

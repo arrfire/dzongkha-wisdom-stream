@@ -1,4 +1,3 @@
-
 // src/components/RewardsPage.tsx - Rewards marketplace for NDI credential holders
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Gift, ShoppingBag, Plane, Utensils, Laptop, Shield, 
-  CheckCircle, ExternalLink, MapPin, Clock, Percent, BookOpen
+  CheckCircle, ExternalLink, MapPin, Clock, Percent, BookOpen, Trophy
 } from "lucide-react";
 import { NDIUser } from "@/types/ndi";
 import { LearnerProfile } from "@/types/learnerProfile";
@@ -117,6 +116,22 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
     }
   ];
 
+  // Mock leaderboard data
+  const leaderboardData = [
+    { rank: 1, name: "Tenzin Norbu", institution: "Royal University of Bhutan", credentials: 15, eduTokens: 2500000, avatar: "TN" },
+    { rank: 2, name: "Pema Choden", institution: "Thimphu TechPark", credentials: 12, eduTokens: 2100000, avatar: "PC" },
+    { rank: 3, name: "Karma Wangchuk", institution: "Druk School of Business", credentials: 11, eduTokens: 1900000, avatar: "KW" },
+    { rank: 4, name: "Sonam Yangchen", institution: "College of Natural Resources", credentials: 10, eduTokens: 1750000, avatar: "SY" },
+    { rank: 5, name: "Dorji Phuntsho", institution: "Jigme Namgyel Engineering College", credentials: 9, eduTokens: 1600000, avatar: "DP" },
+    { rank: 6, name: "Kinley Dem", institution: "Samtse College of Education", credentials: 8, eduTokens: 1450000, avatar: "KD" },
+    { rank: 7, name: "Ugyen Tshering", institution: "Sherubtse College", credentials: 7, eduTokens: 1300000, avatar: "UT" },
+    { rank: 8, name: "Chimi Wangmo", institution: "Gedu College of Business Studies", credentials: 6, eduTokens: 1150000, avatar: "CW" },
+  ];
+
+  const handleGoHome = () => {
+    window.location.href = '/';
+  };
+
   const getUserCredentialTypes = () => {
     const credentialTypes = new Set<string>();
     learnerProfile.progress.forEach(progress => {
@@ -147,6 +162,18 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Header with Go Home Button */}
+      <div className="flex items-center justify-between mb-6">
+        <Button 
+          onClick={handleGoHome}
+          variant="outline"
+          className="flex items-center space-x-2"
+        >
+          <ExternalLink className="h-4 w-4" />
+          <span>Go Back Home</span>
+        </Button>
+      </div>
+
       {/* Header */}
       <Card className="border-2 border-yellow-100 bg-gradient-to-r from-yellow-50 to-orange-50">
         <CardContent className="p-6">
@@ -183,17 +210,107 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
 
       {/* Category Tabs */}
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All Offers</TabsTrigger>
           <TabsTrigger value="restaurant">Restaurants</TabsTrigger>
           <TabsTrigger value="travel">Travel</TabsTrigger>
           <TabsTrigger value="tools">Tools</TabsTrigger>
           <TabsTrigger value="shopping">Shopping</TabsTrigger>
+          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
         </TabsList>
 
+        {/* Existing tabs content */}
         <TabsContent value={selectedCategory} className="mt-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredOffers.map(offer => {
+          {selectedCategory === 'leaderboard' ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Trophy className="h-5 w-5 text-yellow-600" />
+                  <span>National Blockchain Learning Leaderboard</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 mb-6 text-center">
+                  Top learners in Bhutan's blockchain education program. Compete with peers and earn additional EDU rewards!
+                </p>
+                
+                <div className="space-y-4">
+                  {leaderboardData.map((learner, index) => (
+                    <Card key={learner.rank} className={`border-2 transition-all duration-200 ${
+                      learner.rank <= 3 
+                        ? 'border-yellow-200 bg-yellow-50' 
+                        : 'border-gray-200'
+                    }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white ${
+                              learner.rank === 1 ? 'bg-yellow-500' :
+                              learner.rank === 2 ? 'bg-gray-400' :
+                              learner.rank === 3 ? 'bg-orange-600' :
+                              'bg-blue-500'
+                            }`}>
+                              {learner.rank <= 3 ? (
+                                <Trophy className="h-6 w-6" />
+                              ) : (
+                                learner.avatar
+                              )}
+                            </div>
+                            
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-2xl font-bold text-gray-800">#{learner.rank}</span>
+                                <div>
+                                  <h4 className="font-bold text-lg">{learner.name}</h4>
+                                  <p className="text-sm text-gray-600">{learner.institution}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-6 text-right">
+                            <div>
+                              <div className="text-lg font-bold text-green-600">{learner.credentials}</div>
+                              <div className="text-xs text-gray-600">Credentials</div>
+                            </div>
+                            <div>
+                              <div className="text-lg font-bold text-orange-600">
+                                {learner.eduTokens.toLocaleString()} EDU
+                              </div>
+                              <div className="text-xs text-gray-600">Tokens Earned</div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {learner.rank <= 3 && (
+                          <div className="mt-3 pt-3 border-t border-yellow-200">
+                            <Badge className={`${
+                              learner.rank === 1 ? 'bg-yellow-100 text-yellow-800' :
+                              learner.rank === 2 ? 'bg-gray-100 text-gray-800' :
+                              'bg-orange-100 text-orange-800'
+                            }`}>
+                              {learner.rank === 1 ? '🥇 Gold Champion' :
+                               learner.rank === 2 ? '🥈 Silver Expert' :
+                               '🥉 Bronze Leader'}
+                            </Badge>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                  <h4 className="font-bold text-blue-800 mb-2">🎯 Leaderboard Rewards</h4>
+                  <p className="text-sm text-blue-700">
+                    Top 10 learners each month receive bonus EDU tokens and exclusive access to premium content!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredOffers.map(offer => {
               const canRedeem = canRedeemOffer(offer);
               const isRedeemed = redeemedOffers.includes(offer.id);
               
@@ -316,7 +433,8 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
                 </Card>
               );
             })}
-          </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

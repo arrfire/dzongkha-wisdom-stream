@@ -174,9 +174,7 @@ const Index = () => {
                 <Mountain className="h-16 w-16 text-orange-600" />
               </div>
               <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-orange-700 bg-clip-text text-transparent leading-tight">
-                Where Learning Becomes
-                <br />
-                Adventure
+                Making Bhutan the World's First 100% Blockchain Literate Nation
               </h1>
               <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
                 Bringing the magic of blockchain education home to Bhutan, where every lesson unlocks new possibilities and ancient wisdom meets digital futures.
@@ -284,8 +282,8 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600">
-                    Earn EDU tokens and verifiable credentials as you complete missions. 
-                    Your knowledge has real, measurable value.
+                    Earn EDU tokens and verified NDI credentials that unlock free software subscriptions, 
+                    discounts at local restaurants and businesses, and recognition from top employers and academic institutions.
                   </p>
                 </CardContent>
               </Card>
