@@ -1,3 +1,4 @@
+
 // src/components/MissionView.tsx - Fixed version with proper imports
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,22 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, CheckCircle } from "lucide-react";
 import { Mission, Journey } from "@/data/journeyData";
+import { LearnerProfile } from "@/types/learnerProfile";
 import VideoLessonDisplay from "./EnhancedVideoLessonDisplay";
 
 interface MissionViewProps {
   mission: Mission;
   journey: Journey;
   missionNumber: number;
+  learnerProfile?: LearnerProfile;
   onBack: () => void;
   onComplete: (missionId: string) => void;
+  onProfileUpdate?: (profile: LearnerProfile) => void;
 }
 
 const MissionView: React.FC<MissionViewProps> = ({ 
   mission, 
   journey, 
   missionNumber, 
+  learnerProfile,
   onBack, 
-  onComplete 
+  onComplete,
+  onProfileUpdate
 }) => {
   const formatContent = (content: string) => {
     return content.split('\n').map((line, index) => {
@@ -47,6 +53,10 @@ const MissionView: React.FC<MissionViewProps> = ({
         </p>
       );
     });
+  };
+
+  const handleMissionComplete = (missionId: string, timeSpent: number, concepts: string[]) => {
+    onComplete(missionId);
   };
 
   return (
@@ -134,6 +144,9 @@ const MissionView: React.FC<MissionViewProps> = ({
           <VideoLessonDisplay 
             journey={journey}
             missionId={mission.id}
+            learnerProfile={learnerProfile}
+            onProgressUpdate={onProfileUpdate}
+            onMissionComplete={handleMissionComplete}
             className="h-fit"
           />
         </div>
