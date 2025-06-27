@@ -1,4 +1,5 @@
-// src/types/ndi.ts - Updated with guest verification status
+
+// src/types/ndi.ts - Updated with all missing types
 export interface NDIUser {
   citizenId: string;
   fullName: string;
@@ -45,4 +46,36 @@ export interface NDIVerificationResponse {
 export interface ProofCheckResult {
   success: boolean;
   presentation: any;
+  error?: string;
+}
+
+export interface ProofRequestResult {
+  proofRequestThreadId: string;
+  proofRequestURL: string;
+  deepLinkURL: string;
+}
+
+export interface FoundationalId {
+  idNumber: string;
+  fullName: string;
+}
+
+export interface WebhookRegistrationRequest {
+  url: string;
+  events: string[];
+}
+
+export interface ProofSubscriptionRequest {
+  threadId: string;
+  webhookUrl?: string;
+}
+
+export interface NDIAuthState {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  qrCode: string | null;
+  threadId?: string;
+  deepLinkURL?: string;
+  user: NDIUser | null;
+  error: string | null;
 }
