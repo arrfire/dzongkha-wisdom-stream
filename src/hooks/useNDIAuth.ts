@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import type { NDIUser, NDIAuthState } from '@/types/ndi';
-import { ndiApiService } from '@/services/ndiApiService';
+import { ndiApiService } from '@/services/ndiApiService'; // Named import (correct)
 
 export const useNDIAuth = () => {
   const [authState, setAuthState] = useState<NDIAuthState>({
@@ -43,7 +43,7 @@ export const useNDIAuth = () => {
       console.log(`🔍 Polling attempt ${attempts}/${maxAttempts} for thread:`, threadId);
       
       try {
-        const result = await ndiApiService.checkAuthenticationStatus(threadId);
+        const result = await ndiApiService.checkProof(threadId); // Updated method name
         
         if (result.success && result.presentation) {
           console.log('🎉 Authentication successful! Processing user data...');
@@ -78,11 +78,16 @@ export const useNDIAuth = () => {
             timestamp: Date.now()
           }));
           
-          console.log('🚀 Redirecting to AI Chat interface...');
+          console.log('🚀 NDI authentication successful - user will be redirected to chat interface');
           
           // Clear polling
           clearInterval(interval);
           setPollingInterval(null);
+          
+          // Trigger a page refresh to ensure the main app picks up the authentication state
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
           
         } else if (result.error) {
           console.log('❌ Authentication failed:', result.error);

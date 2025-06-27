@@ -30,6 +30,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/rewards" element={<Rewards />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/chatpage" element={<Profile/>} /> 
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
