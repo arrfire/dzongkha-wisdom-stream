@@ -1,3 +1,6 @@
+
+import { LucideIcon } from "lucide-react";
+
 export interface Journey {
   id: string;
   title: string;
@@ -5,6 +8,12 @@ export interface Journey {
   missions: Mission[];
   rewardPoints: number;
   imageUrl: string;
+  status?: 'locked' | 'available' | 'completed';
+  progress?: number;
+  icon?: LucideIcon;
+  color?: string;
+  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
+  rewards?: number;
 }
 
 export interface Mission {
@@ -16,6 +25,9 @@ export interface Mission {
   duration: number;
   rewardPoints: number;
   concepts: string[];
+  completed?: boolean;
+  content?: string;
+  exercises?: string[];
 }
 
 export interface Quiz {
@@ -180,3 +192,6 @@ export const journeys: Journey[] = [
     imageUrl: "/images/blockchain-security.jpg"
   }
 ];
+
+// Export as journeyData for compatibility with existing imports
+export const journeyData = journeys;
