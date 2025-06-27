@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { NDIUser } from "@/types/ndi";
 import { LearnerProfile } from "@/types/learnerProfile";
+import CredentialVerification from "./CredentialVerification";
 
 interface RewardOffer {
   id: string;
@@ -37,6 +38,7 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [redeemedOffers, setRedeemedOffers] = useState<string[]>([]);
+  const [verifiedCredentials, setVerifiedCredentials] = useState<any[]>([]);
 
   // Sample reward offers
   const rewardOffers: RewardOffer[] = [
@@ -128,6 +130,11 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
     { rank: 8, name: "Chimi Wangmo", institution: "Gedu College of Business Studies", credentials: 6, eduTokens: 1150000, avatar: "CW" },
   ];
 
+  const handleVerificationComplete = (credentials: any[]) => {
+    setVerifiedCredentials(credentials);
+    console.log('✅ Credentials verified:', credentials);
+  };
+
   const handleGoHome = () => {
     window.location.href = '/';
   };
@@ -207,6 +214,9 @@ export const RewardsPage: React.FC<RewardsPageProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Credential Verification Section */}
+      <CredentialVerification onVerificationComplete={handleVerificationComplete} />
 
       {/* Category Tabs */}
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
