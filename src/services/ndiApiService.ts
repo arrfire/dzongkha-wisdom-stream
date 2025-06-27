@@ -330,102 +330,10 @@ class NDIApiService {
      throw error;
    }
  }
-
-  /**
-   * Issue a credential to NDI Wallet upon mission completion
-   */
-  async issueCredential(credentialData: {
-    issuerName: string;
-    studentId: number;
-    studentName: string;
-    titleOfAward: string;
-    collegeName: string;
-  }, holderDID: string): Promise<any> {
-    console.log('🎓 Issuing NDI credential to wallet:', holderDID);
-    
-    try {
-      const response = await fetch('https://demo-client.bhutanndi.com/issuer/v1/issue-credential', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.ndiToken}`,
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          credentialData: {
-            "Issuer Name": credentialData.issuerName,
-            "Student ID": credentialData.studentId,
-            "Student Name": credentialData.studentName,
-            "Title of Award": credentialData.titleOfAward,
-            "College Name": credentialData.collegeName
-          },
-          schemaId: "https://dev-schema.ngotag.com/schemas/ff021513-94b1-407d-a0ee-bb829531df42",
-          holderDID: holderDID
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to issue credential:', errorText);
-        throw new Error(`Failed to issue credential: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Credential issued successfully:', result);
-      return result;
-    } catch (error) {
-      console.error('❌ Error issuing credential:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Create a proof request to verify existing credentials
-   */
-  async createProofRequest(): Promise<any> {
-    console.log('🔍 Creating proof request to verify credentials');
-    
-    try {
-      const response = await fetch('https://demo-client.bhutanndi.com/verifier/v1/proof-request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.ndiToken}`,
-          'Accept': '*/*'
-        },
-        body: JSON.stringify({
-          proofName: "Verify EduStream Credential",
-          proofAttributes: [
-            {
-              name: "Student ID",
-              restrictions: [
-                { schema_name: "https://dev-schema.ngotag.com/schemas/ff021513-94b1-407d-a0ee-bb829531df42" }
-              ]
-            },
-            {
-              name: "Title of Award", 
-              restrictions: [
-                { schema_name: "https://dev-schema.ngotag.com/schemas/ff021513-94b1-407d-a0ee-bb829531df42" }
-              ]
-            }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to create proof request:', errorText);
-        throw new Error(`Failed to create proof request: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Proof request created successfully:', result);
-      return result;
-    } catch (error) {
-      console.error('❌ Error creating proof request:', error);
-      throw error;
-    }
-  }
 }
 
 export const ndiApiService = new NDIApiService();
+
+
+
+
