@@ -1,20 +1,29 @@
-// ===== 3. Update src/components/Header.tsx =====
-// Replace your existing Header component with this enhanced version
 
+// src/components/Header.tsx - Updated with new navigation and Community link
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BookOpen, Mountain, Coins, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useNDIAuth } from "@/hooks/useNDIAuth";
 import { NDILogin } from "./NDILogin";
 
 const Header = () => {
   const { isAuthenticated, user, logout } = useNDIAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const navigate = useNavigate();
   
   const handleLoginSuccess = (userData: any) => {
     setShowLoginModal(false);
     console.log('User authenticated:', userData);
+  };
+
+  const handleLogoClick = () => {
+    navigate('/');
+  };
+
+  const handleLessonsClick = () => {
+    navigate('/');
   };
 
   return (
@@ -22,7 +31,7 @@ const Header = () => {
       <header className="bg-white shadow-sm border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick}>
               <Mountain className="h-8 w-8 text-orange-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                 Edustream
@@ -30,10 +39,30 @@ const Header = () => {
             </div>
             
             <nav className="hidden md:flex items-center space-x-8">
-              <a href="#" className="text-gray-700 hover:text-orange-600 transition-colors">Lessons</a>
-              <a href="#" className="text-gray-700 hover:text-orange-600 transition-colors">Quizzes</a>
-              <a href="#" className="text-gray-700 hover:text-orange-600 transition-colors">Community</a>
-              <a href="#" className="text-gray-700 hover:text-orange-600 transition-colors">Rewards</a>
+              <button 
+                onClick={handleLessonsClick}
+                className="text-gray-700 hover:text-orange-600 transition-colors"
+              >
+                Lessons
+              </button>
+              <button 
+                onClick={() => navigate('/web3bhutan')}
+                className="text-gray-700 hover:text-orange-600 transition-colors"
+              >
+                Web3 Bhutan
+              </button>
+              <button 
+                onClick={() => navigate('/community')}
+                className="text-gray-700 hover:text-orange-600 transition-colors"
+              >
+                Community
+              </button>
+              <button 
+                onClick={() => navigate('/rewards')}
+                className="text-gray-700 hover:text-orange-600 transition-colors"
+              >
+                Rewards
+              </button>
             </nav>
             
             <div className="flex items-center space-x-4">
